@@ -7,7 +7,7 @@
     "barcode": "885100010001",
     "price": 12999.00,
     "cost": 8500.00,
-    "image_url": "https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://www.jib.co.th/img_master/product/original/2022101116022655741_1.jpg",
     "stock": 5
   },
   {
@@ -18,7 +18,7 @@
     "barcode": "885100010002",
     "price": 13950.00,
     "cost": 9100.00,
-    "image_url": "https://images.unsplash.com/photo-1591488320449-011701bb6704?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://www.jib.co.th/img_master/product/original/2023022213494858032_1.jpg",
     "stock": 10
   },
   {
@@ -29,18 +29,18 @@
     "barcode": "885100010003",
     "price": 23999.00,
     "cost": 16000.00,
-    "image_url": "https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://img.advice.co.th/images_nas/pic_product4/A0165534/A0165534OK_BIG_1.jpg",
     "stock": 15
   },
   {
     "id": "4",
-    "name": "AMD Ryzen 9 7950X3D Gaming Processor",
+    "name": "AMD Ryzen 5 5500 Gaming Processor",
     "category": "Computer Parts",
     "sku": "CPU-AMD-7950X",
     "barcode": "885100010004",
     "price": 21999.00,
     "cost": 14500.00,
-    "image_url": "https://images.unsplash.com/photo-1555680202-c86f0e12f086?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRfpz0lGmF7Q08LeK7hv-7umMjamPiycMzwnyNzJCkMHg&s",
     "stock": 8
   },
   {
@@ -51,7 +51,7 @@
     "barcode": "885100010005",
     "price": 49999.00,
     "cost": 33000.00,
-    "image_url": "https://images.unsplash.com/photo-1562976540-1502c2145186?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSin1645FYh5C2AnTYo-UKGKYjTYoj-eiTv0ell2pZ9vQ&s=10",
     "stock": 20
   },
   {
@@ -62,7 +62,7 @@
     "barcode": "885100010006",
     "price": 239.99,
     "cost": 150.00,
-    "image_url": "https://images.unsplash.com/photo-1587831990711-23ca6441447b?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcStDeqUNq7QixRQnanAQP8jn1wx-EDZmpy8EcATsHWXEg&s=10",
     "stock": 12
   },
   {
@@ -73,7 +73,7 @@
     "barcode": "885100010007",
     "price": 244.99,
     "cost": 155.00,
-    "image_url": "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS4dTjWxCb4wfuQ_1ZYmbFlA-9Mds1FSWMYukg27zoUDQ&s=10",
     "stock": 7
   },
   {
@@ -84,7 +84,7 @@
     "barcode": "885100010008",
     "price": 999.99,
     "cost": 650.00,
-    "image_url": "https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRx6V06ieUMqnWMK1UlvxDSOYvJwBz_QiAMmYixT45MsQ&s=10",
     "stock": 6
   },
   {
@@ -95,7 +95,7 @@
     "barcode": "885100010009",
     "price": 1099.99,
     "cost": 720.00,
-    "image_url": "https://images.unsplash.com/photo-1542393545-10f5cde2c810?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTpE1HP2F9ejd9OmMYd6TRXWWRw_Cit6XJmC4V-tBlNKA&s=10",
     "stock": 4
   },
   {
@@ -106,7 +106,7 @@
     "barcode": "885100010010",
     "price": 549.00,
     "cost": 350.00,
-    "image_url": "https://images.unsplash.com/photo-1598550476439-6847785fcea6?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFIJXgWPFXoi2S3E4vPsp1OAnnyYdWMPIWGxwqm59OkQ&s=10",
     "stock": 14
   },
   {
@@ -117,7 +117,7 @@
     "barcode": "885100010011",
     "price": 1299.00,
     "cost": 850.00,
-    "image_url": "https://images.unsplash.com/photo-1580481077197-20229bc7b2b6?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQYd0QnSNf6lL8WLK9R8OL-4J74zLvtehXNlzuyAu4z5g&s=10",
     "stock": 2
   },
   {
@@ -128,7 +128,7 @@
     "barcode": "885100010012",
     "price": 159.00,
     "cost": 95.00,
-    "image_url": "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQSa61cEj-wZC8dBXhH1vQmQcyT79Wt07o66adsFRfiJg&s=10",
     "stock": 35
   },
   {
@@ -139,7 +139,7 @@
     "barcode": "885100010013",
     "price": 219.99,
     "cost": 140.00,
-    "image_url": "https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://www.jib.co.th/img_master/product/original/2024070815181368731_1.jpg",
     "stock": 18
   },
   {
@@ -150,7 +150,7 @@
     "barcode": "885100010014",
     "price": 349.99,
     "cost": 220.00,
-    "image_url": "https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgCx7KfOo_ddsycppm6bGT0Q8-tfiLtHRvTbBHDUVotg&s",
     "stock": 22
   },
   {
@@ -161,7 +161,7 @@
     "barcode": "885100010015",
     "price": 299.99,
     "cost": 180.00,
-    "image_url": "https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80",
+    "image_url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS7oNnEzld2ett0d0WMYoPvmkzko21M2VRfLIe0of2vtg&s=10",
     "stock": 3
   }
 ]
