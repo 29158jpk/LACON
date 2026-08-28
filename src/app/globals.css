@@ -382,11 +382,45 @@ body {
   justify-content: center;
   font-size: 16px;
   line-height: 1;
-  transition: background 0.15s;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 .qty-btn:hover { background: rgba(255, 255, 255, 0.2); }
 .qty-display { width: 24px; text-align: center; font-size: 13px; font-weight: 600; }
+
+.btn-cart-delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin-left: 2px;
+}
+.btn-cart-delete:hover {
+  background: rgba(239, 68, 68, 0.28);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.btn-clear-cart {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-clear-cart:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
 
 .cart-footer {
   padding: 16px 20px;
@@ -1001,3 +1035,404 @@ body {
 ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+/* ─────────────────────────────────────────────
+   SKU & Barcode Badges & Table Elements
+   ───────────────────────────────────────────── */
+.sku-barcode-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sku-badge {
+  font-family: 'Geist Mono', monospace, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  display: inline-block;
+  letter-spacing: 0.5px;
+}
+
+.barcode-preview-clickable {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+  width: fit-content;
+}
+.barcode-preview-clickable:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.barcode-number {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.btn-barcode {
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-barcode:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* ─────────────────────────────────────────────
+   Modal Previews (Image & Barcode)
+   ───────────────────────────────────────────── */
+.modal-preview-box {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.preview-image-wrapper, .preview-barcode-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 8px;
+  min-height: 90px;
+}
+
+.modal-preview-img {
+  max-height: 80px;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.preview-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─────────────────────────────────────────────
+   POS Card SKU & Camera Scan Button
+   ───────────────────────────────────────────── */
+.btn-camera-scan {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+.btn-camera-scan:hover {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
+}
+
+.product-card-sku-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.card-sku-tag {
+  font-family: 'Geist Mono', monospace, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.3px;
+}
+
+.card-barcode-text {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* ─────────────────────────────────────────────
+   Camera Scanner Modal
+   ───────────────────────────────────────────── */
+.camera-scanner-modal {
+  width: 480px;
+  text-align: center;
+}
+
+.scanner-video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #000;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-laser-overlay {
+  position: absolute;
+  inset: 15%;
+  border: 2px dashed rgba(59, 130, 246, 0.6);
+  border-radius: 12px;
+  pointer-events: none;
+  overflow: hidden;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.laser-line {
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
+  top: 0;
+  animation: laserScan 2s infinite alternate ease-in-out;
+}
+
+@keyframes laserScan {
+  0% { top: 5%; }
+  100% { top: 95%; }
+}
+
+.scan-success-badge {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(16, 185, 129, 0.9);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  animation: fadeIn 0.2s ease;
+  white-space: nowrap;
+}
+
+.scanner-error-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 20px;
+}
+
+/* ─────────────────────────────────────────────
+   Barcode Print Modal & Label Styles
+   ───────────────────────────────────────────── */
+.barcode-print-modal {
+  width: 680px;
+}
+
+.barcode-print-controls {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.barcode-labels-preview-container {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 16px;
+  background: #cbd5e1;
+  border-radius: 12px;
+}
+
+.barcode-labels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.barcode-labels-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.barcode-label-card {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.barcode-label-card.compact {
+  padding: 6px 8px;
+}
+
+.label-store-name {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 2px;
+}
+
+.label-product-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.barcode-label-card.compact .label-product-name {
+  font-size: 11px;
+}
+
+.label-barcode-wrapper {
+  margin: 2px 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.label-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.label-sku {
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.label-price {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+/* ─────────────────────────────────────────────
+   Print Media Styles (window.print())
+   ───────────────────────────────────────────── */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  .no-print,
+  .top-nav,
+  .inventory-page,
+  .pos-container,
+  .dashboard-page,
+  .modal-header,
+  .form-actions {
+    display: none !important;
+  }
+
+  .modal-overlay {
+    position: static !important;
+    background: none !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    display: block !important;
+  }
+
+  .modal, .barcode-print-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .barcode-labels-preview-container {
+    background: #ffffff !important;
+    padding: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .barcode-labels-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8mm !important;
+    page-break-inside: auto;
+  }
+
+  .barcode-label-card {
+    border: 1px solid #000000 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    padding: 3mm !important;
+  }
+
+  .label-product-name, .label-price, .label-sku, .label-store-name {
+    color: #000000 !important;
+  }
+}
+

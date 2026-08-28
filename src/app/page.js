@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { getProducts, addOrder } from '../lib/store';
+import { getProducts, addOrder, findProductByBarcodeOrSku } from '../lib/store';
+import { playScanSound } from '../lib/barcode';
+import ProductImage from './components/ProductImage';
+import CameraScannerModal from './components/CameraScannerModal';
 
 // ── QR Placeholder (SVG pattern) ──────────────────────────────────────────────
 function QRCodePlaceholder({ amount }) {
-  // Simple deterministic pattern based on amount
   const pattern = [
     1,1,1,1,1,1,1,0,1,0,
     1,0,0,0,0,0,1,0,0,1,
@@ -182,9 +184,12 @@ export default function POS() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // Load products from localStorage (seeded from products.json if first time)
+  const searchInputRef = useRef(null);
+
+  // Load products from localStorage
   useEffect(() => {
     setProducts(getProducts());
   }, []);
@@ -192,8 +197,13 @@ export default function POS() {
   const categories = ['All', ...new Set(products.map(p => p.category))];
 
   const filteredProducts = products.filter(p => {
+    const s = searchQuery.toLowerCase().trim();
     const matchCat = activeCategory === 'All' || p.category === activeCategory;
-    const matchSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchSearch =
+      !s ||
+      p.name.toLowerCase().includes(s) ||
+      (p.sku && p.sku.toLowerCase().includes(s)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(s));
     return matchCat && matchSearch;
   });
 
@@ -201,10 +211,10 @@ export default function POS() {
     setToast({ message, type, key: Date.now() });
   }, []);
 
-  const addToCart = (product) => {
+  const addToCart = useCallback((product) => {
     if (product.stock <= 0) {
       showToast(`"${product.name}" หมด Stock แล้ว`, 'error');
-      return;
+      return false;
     }
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
@@ -219,6 +229,79 @@ export default function POS() {
       }
       return [...prev, { ...product, qty: 1 }];
     });
+    return true;
+  }, [showToast]);
+
+  // Handle Barcode Scanner / SKU Code input
+  const handleBarcodeScan = useCallback((code) => {
+    const cleanCode = code.trim();
+    if (!cleanCode) return;
+
+    const matchedProduct = findProductByBarcodeOrSku(cleanCode);
+    if (matchedProduct) {
+      playScanSound();
+      const added = addToCart(matchedProduct);
+      if (added) {
+        showToast(`✓ สแกนสำเร็จ: ${matchedProduct.name}`, 'success');
+      }
+      setSearchQuery('');
+    } else {
+      showToast(`✕ ไม่พบสินค้าจากรหัส: "${cleanCode}"`, 'error');
+    }
+  }, [addToCart, showToast]);
+
+  // Hardware Barcode Scanner Global Key Listener
+  useEffect(() => {
+    let buffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e) => {
+      // Ignore if user is typing inside standard inputs or textarea (except search input)
+      const target = e.target;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA';
+      
+      const currentTime = Date.now();
+      const diff = currentTime - lastKeyTime;
+      lastKeyTime = currentTime;
+
+      // Barcode scanners type very rapidly (< 50ms between keys)
+      if (e.key === 'Enter') {
+        if (buffer.length >= 3) {
+          e.preventDefault();
+          handleBarcodeScan(buffer);
+          buffer = '';
+        }
+      } else if (e.key.length === 1) {
+        // If rapid keystroke or not inside an input, buffer it
+        if (diff > 100 && !isInput) {
+          buffer = '';
+        }
+        buffer += e.key;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleBarcodeScan]);
+
+  // Search input keydown: trigger barcode scan on Enter
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
+      // Try exact barcode/SKU lookup first
+      const matched = findProductByBarcodeOrSku(searchQuery);
+      if (matched) {
+        handleBarcodeScan(searchQuery);
+      } else if (filteredProducts.length === 1) {
+        // If exactly one search match, add to cart
+        playScanSound();
+        addToCart(filteredProducts[0]);
+        showToast(`เพิ่ม "${filteredProducts[0].name}" ลงตะกร้าแล้ว`, 'success');
+        setSearchQuery('');
+      } else if (filteredProducts.length === 0) {
+        showToast(`ไม่พบสินค้า "${searchQuery}"`, 'error');
+      }
+    }
   };
 
   const updateQty = (id, delta) => {
@@ -237,6 +320,20 @@ export default function POS() {
         })
         .filter(Boolean)
     );
+  };
+
+  const removeFromCart = (id) => {
+    const item = cart.find(i => i.id === id);
+    setCart(prev => prev.filter(i => i.id !== id));
+    if (item) {
+      showToast(`ลบ "${item.name}" ออกจากตะกร้าแล้ว`, 'info');
+    }
+  };
+
+  const clearCart = () => {
+    if (cart.length === 0) return;
+    setCart([]);
+    showToast('ยกเลิกรายการสินค้าทั้งหมดในตะกร้าแล้ว', 'info');
   };
 
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -288,18 +385,37 @@ export default function POS() {
         <div className="main-content">
           <div className="pos-header">
             <h2>สินค้า</h2>
-            <div className="search-wrapper">
-              <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-              </svg>
-              <input
-                id="product-search"
-                type="text"
-                className="search-input"
-                placeholder="ค้นหาสินค้า..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+            
+            <div style={{ display: 'flex', gap: 10, flex: 1, maxWidth: 520, justifyContent: 'flex-end' }}>
+              <div className="search-wrapper" style={{ maxWidth: 360 }}>
+                <svg className="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  id="product-search"
+                  type="text"
+                  className="search-input"
+                  placeholder="ค้นหาชื่อ, SKU หรือสแกน Barcode (Enter)..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                />
+              </div>
+
+              {/* Camera Scanner Button */}
+              <button
+                id="btn-open-camera-scanner"
+                className="btn-camera-scan"
+                title="สแกน Barcode ด้วยกล้อง"
+                onClick={() => setShowCameraScanner(true)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span>สแกนกล้อง</span>
+              </button>
             </div>
           </div>
 
@@ -314,8 +430,17 @@ export default function POS() {
                   onClick={() => addToCart(product)}
                 >
                   <span className={`stock-badge ${status}`}>{stockLabel[status]}</span>
-                  <img src={product.image_url} alt={product.name} className="product-image" />
+                  <ProductImage
+                    src={product.image_url}
+                    alt={product.name}
+                    category={product.category}
+                    className="product-image"
+                  />
                   <div className="product-info">
+                    <div className="product-card-sku-row">
+                      <span className="card-sku-tag">{product.sku || `ID:${product.id}`}</span>
+                      {product.barcode && <span className="card-barcode-text">#{product.barcode.slice(-4)}</span>}
+                    </div>
                     <div className="product-title">{product.name}</div>
                     <div className="product-price">
                       ฿{product.price.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
@@ -326,8 +451,8 @@ export default function POS() {
               );
             })}
             {filteredProducts.length === 0 && (
-              <p style={{ color: 'var(--text-muted)', gridColumn: '1/-1' }}>
-                {searchQuery ? `ไม่พบสินค้า "${searchQuery}"` : 'ไม่มีสินค้าในหมวดนี้'}
+              <p style={{ color: 'var(--text-muted)', gridColumn: '1/-1', padding: '40px 0', textAlign: 'center' }}>
+                {searchQuery ? `ไม่พบสินค้า "${searchQuery}" (ลองค้นหาด้วยชื่อ, SKU หรือ Barcode)` : 'ไม่มีสินค้าในหมวดนี้'}
               </p>
             )}
           </div>
@@ -336,8 +461,24 @@ export default function POS() {
         {/* ── Cart Panel ── */}
         <div className="cart-panel">
           <div className="cart-header">
-            <h3>รายการสั่ง</h3>
-            {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h3>รายการสั่ง</h3>
+              {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+            </div>
+            {cart.length > 0 && (
+              <button
+                id="btn-clear-cart"
+                className="btn-clear-cart"
+                onClick={clearCart}
+                title="ยกเลิกรายการสินค้าทั้งหมดในตะกร้า"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>ยกเลิกทั้งหมด</span>
+              </button>
+            )}
           </div>
 
           <div className="cart-items">
@@ -348,20 +489,39 @@ export default function POS() {
                   <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                 </svg>
                 <p>ยังไม่มีสินค้าในตะกร้า</p>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, display: 'block' }}>
+                  คลิกที่สินค้า หรือสแกน Barcode เพื่อเพิ่มลงตะกร้า
+                </span>
               </div>
             ) : (
               cart.map(item => (
                 <div key={item.id} className="cart-item" id={`cart-item-${item.id}`}>
                   <div className="cart-item-info">
                     <div className="cart-item-title">{item.name}</div>
-                    <div className="cart-item-price">
-                      ฿{(item.price * item.qty).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span className="cart-item-price">
+                        ฿{(item.price * item.qty).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                      </span>
+                      {item.sku && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>({item.sku})</span>}
                     </div>
                   </div>
                   <div className="cart-item-controls">
                     <button className="qty-btn" onClick={() => updateQty(item.id, -1)} aria-label="ลด">−</button>
                     <span className="qty-display">{item.qty}</span>
                     <button className="qty-btn" onClick={() => updateQty(item.id, 1)} aria-label="เพิ่ม">+</button>
+                    <button
+                      className="qty-btn btn-cart-delete"
+                      onClick={() => removeFromCart(item.id)}
+                      title="ลบสินค้านี้ออกจากตะกร้า"
+                      aria-label="ลบสินค้านี้"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))
@@ -392,6 +552,17 @@ export default function POS() {
           total={total}
           onClose={() => setShowPayment(false)}
           onSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* ── Camera Scanner Modal ── */}
+      {showCameraScanner && (
+        <CameraScannerModal
+          onClose={() => setShowCameraScanner(false)}
+          onScan={(code) => {
+            handleBarcodeScan(code);
+            setShowCameraScanner(false);
+          }}
         />
       )}
 

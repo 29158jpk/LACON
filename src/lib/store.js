@@ -1,10 +1,12 @@
 /**
  * HorizonPOS — localStorage Data Layer
  * Works offline without Supabase configuration.
- * All data persisted in browser localStorage.
+ * All data persisted in browser localStorage with SKU & Barcode support.
  */
 
 import mockProducts from '../data/products.json';
+import { generateSKU, generateBarcode } from './barcode';
+import { cleanImageUrl } from './imageHelper';
 
 const PRODUCTS_KEY = 'horizonpos_products';
 const ORDERS_KEY = 'horizonpos_orders';
@@ -36,13 +38,53 @@ function writeLS(key, data) {
   }
 }
 
+/**
+ * Migration helper: Ensure all products have SKU, Barcode, and valid image URLs
+ */
+function migrateProducts(products) {
+  let hasChanges = false;
+  const migrated = products.map((p, idx) => {
+    let updated = { ...p };
+
+    // Auto-generate missing SKU
+    if (!updated.sku || typeof updated.sku !== 'string' || updated.sku.trim() === '') {
+      updated.sku = generateSKU(updated.category);
+      hasChanges = true;
+    }
+
+    // Auto-generate missing Barcode
+    if (!updated.barcode || typeof updated.barcode !== 'string' || updated.barcode.trim() === '') {
+      updated.barcode = generateBarcode();
+      hasChanges = true;
+    }
+
+    // Fix legacy broken local images with matching mock image
+    if (updated.image_url && updated.image_url.startsWith('/images/')) {
+      const match = mockProducts.find(m => m.id === updated.id || m.name === updated.name);
+      if (match && match.image_url && !match.image_url.startsWith('/images/')) {
+        updated.image_url = match.image_url;
+        hasChanges = true;
+      }
+    }
+
+    return updated;
+  });
+
+  if (hasChanges) {
+    writeLS(PRODUCTS_KEY, migrated);
+  }
+  return migrated;
+}
+
 // ─────────────────────────────────────────────
 // Products
 // ─────────────────────────────────────────────
 
 export function getProducts() {
   const stored = readLS(PRODUCTS_KEY);
-  if (stored && stored.length > 0) return stored;
+  if (stored && stored.length > 0) {
+    return migrateProducts(stored);
+  }
   // Seed from mock data on first load
   writeLS(PRODUCTS_KEY, mockProducts);
   return mockProducts;
@@ -54,9 +96,14 @@ export function saveProducts(products) {
 
 export function addProduct(product) {
   const products = getProducts();
+  const { cleanUrl } = cleanImageUrl(product.image_url || '');
+
   const newProduct = {
     ...product,
     id: Date.now().toString(),
+    sku: (product.sku && product.sku.trim()) || generateSKU(product.category),
+    barcode: (product.barcode && product.barcode.trim()) || generateBarcode(),
+    image_url: cleanUrl,
     stock: Number(product.stock) || 0,
     price: Number(product.price) || 0,
     cost: Number(product.cost) || 0,
@@ -68,14 +115,22 @@ export function addProduct(product) {
 
 export function updateProduct(id, updates) {
   const products = getProducts();
+  const cleanUpdates = { ...updates };
+  if (cleanUpdates.image_url !== undefined) {
+    const { cleanUrl } = cleanImageUrl(cleanUpdates.image_url);
+    cleanUpdates.image_url = cleanUrl;
+  }
+
   const updated = products.map(p =>
     p.id === id
       ? {
           ...p,
-          ...updates,
-          price: Number(updates.price ?? p.price),
-          cost: Number(updates.cost ?? p.cost),
-          stock: Number(updates.stock ?? p.stock),
+          ...cleanUpdates,
+          sku: cleanUpdates.sku !== undefined ? (cleanUpdates.sku.trim() || p.sku) : p.sku,
+          barcode: cleanUpdates.barcode !== undefined ? (cleanUpdates.barcode.trim() || p.barcode) : p.barcode,
+          price: Number(cleanUpdates.price ?? p.price),
+          cost: Number(cleanUpdates.cost ?? p.cost),
+          stock: Number(cleanUpdates.stock ?? p.stock),
         }
       : p
   );
@@ -87,6 +142,23 @@ export function deleteProduct(id) {
   const products = getProducts().filter(p => p.id !== id);
   saveProducts(products);
   return products;
+}
+
+/**
+ * Search for a product by exact Barcode, SKU, or ID
+ * @param {string} code 
+ * @returns {object|null}
+ */
+export function findProductByBarcodeOrSku(code) {
+  if (!code || typeof code !== 'string') return null;
+  const searchCode = code.trim().toLowerCase();
+  const products = getProducts();
+  
+  return products.find(p => 
+    (p.barcode && p.barcode.toLowerCase() === searchCode) ||
+    (p.sku && p.sku.toLowerCase() === searchCode) ||
+    (p.id && p.id.toLowerCase() === searchCode)
+  ) || null;
 }
 
 /** Deduct stock after a successful sale. Throws if any item would go negative. */
@@ -122,7 +194,7 @@ export function saveOrders(orders) {
 
 /**
  * Create a new order, deduct stock, and persist everything.
- * @param {Array} items  - cart items [{id, name, price, cost, qty}]
+ * @param {Array} items  - cart items [{id, name, price, cost, qty, sku, barcode}]
  * @param {'cash'|'qr'} paymentMethod
  * @returns {object} The saved order
  */
@@ -136,7 +208,15 @@ export function addOrder(items, paymentMethod) {
 
   const order = {
     id: Date.now().toString(),
-    items: items.map(i => ({ id: i.id, name: i.name, price: i.price, cost: i.cost || 0, qty: i.qty })),
+    items: items.map(i => ({
+      id: i.id,
+      name: i.name,
+      sku: i.sku || '',
+      barcode: i.barcode || '',
+      price: i.price,
+      cost: i.cost || 0,
+      qty: i.qty,
+    })),
     total,
     totalCost,
     profit,
