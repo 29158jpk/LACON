@@ -381,11 +381,13 @@ export default function Inventory() {
   const [modal, setModal] = useState(null); // null | {type: 'add'|'edit'|'delete'|'print', product?}
   const [toast, setToast] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
     setProducts(getProducts());
     setCurrentUser(getCurrentUser());
+    setLoading(false);
     const handleAuth = () => {
       setCurrentUser(getCurrentUser());
       setProducts(getProducts());
@@ -413,8 +415,16 @@ export default function Inventory() {
     );
   });
 
-  // Role Access Restriction for Employee
-  if (currentUser && currentUser.role !== 'admin') {
+  if (loading) {
+    return (
+      <div className="inventory-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <p style={{ color: 'var(--text-muted)' }}>กำลังโหลดข้อมูลคลังสินค้า...</p>
+      </div>
+    );
+  }
+
+  // Role Access Restriction: Admin only
+  if (currentUser?.role !== 'admin') {
     return (
       <div className="inventory-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
         <div className="access-denied-card">
@@ -428,7 +438,7 @@ export default function Inventory() {
           </div>
           <div className="access-denied-actions">
             <Link href="/" className="btn-secondary" style={{ textDecoration: 'none' }}>
-              ← กลับไปหน้าขาย (POS)
+              ← กลับไปหน้าร้านค้า
             </Link>
             <button
               type="button"
