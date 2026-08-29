@@ -286,7 +286,7 @@ export default function OrdersPage() {
       <div className="page-header orders-page-header">
         <div>
           <div className="orders-header-title-row">
-            <h1>Orders</h1>
+            <h1>Sales History</h1>
             <span className="orders-count-badge">{orders.length} บิลทั้งหมด</span>
           </div>
           <p>ตรวจสอบรายการขายย้อนหลัง ค้นหาเลขที่บิล พิมพ์ใบเสร็จ และจัดการยอดขาย</p>
