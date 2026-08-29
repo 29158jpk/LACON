@@ -8,32 +8,41 @@ import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
 import OrderReceiptModal from './components/OrderReceiptModal';
 
-// ── QR Placeholder (SVG pattern) ──────────────────────────────────────────────
-function QRCodePlaceholder({ amount }) {
-  const pattern = [
-    1,1,1,1,1,1,1,0,1,0,
-    1,0,0,0,0,0,1,0,0,1,
-    1,0,1,1,1,0,1,0,1,0,
-    1,0,1,1,1,0,1,1,0,1,
-    1,0,1,1,1,0,1,0,1,0,
-    1,0,0,0,0,0,1,1,0,0,
-    1,1,1,1,1,1,1,0,1,0,
-    0,0,0,0,0,0,0,0,1,1,
-    1,0,1,1,0,1,0,1,0,1,
-    0,1,0,0,1,0,1,1,0,1,
-  ];
+// ── PromptPay QR Component ───────────────────────────────────────────────────
+function PromptPayQRCode({ amount }) {
   return (
-    <div className="qr-placeholder">
-      <div className="qr-grid">
-        {pattern.map((cell, i) => (
-          <div
-            key={i}
-            className="qr-cell"
-            style={{ background: cell ? '#0f172a' : 'transparent', width: 14, height: 14 }}
-          />
-        ))}
+    <div className="promptpay-qr-box">
+      <div className="promptpay-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="5" height="5" rx="1"/>
+          <rect x="16" y="3" width="5" height="5" rx="1"/>
+          <rect x="3" y="16" width="5" height="5" rx="1"/>
+          <path d="M21 16h-3a2 2 0 0 0-2 2v3M16 21v.01M21 21v.01M14 14h.01M21 11h.01"/>
+        </svg>
+        <span>Thai QR Payment / พร้อมเพย์</span>
       </div>
-      <p>สแกนเพื่อชำระ ฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</p>
+
+      <div className="promptpay-qr-img-wrapper">
+        <img
+          src="/promptpay-qr.png"
+          alt="PromptPay QR Code"
+          className="promptpay-qr-img"
+        />
+      </div>
+
+      <div className="promptpay-account-info">
+        <div className="account-row account-name">
+          <span className="account-label">ชื่อ:</span>
+          <strong className="account-val">นายบุณยวีร์ แซ่ตัง</strong>
+        </div>
+        <div className="account-row account-no">
+          <span className="account-label">เลขบัญชี:</span>
+          <strong className="account-val font-mono">207-8-22728-4</strong>
+        </div>
+        <div className="promptpay-amount-pill">
+          สแกนชำระเงิน: <strong>฿{amount.toLocaleString('th-TH', { minimumFractionDigits: 2 })}</strong>
+        </div>
+      </div>
     </div>
   );
 }
@@ -162,7 +171,7 @@ function PaymentModal({ cart, total, onClose, onSuccess }) {
         )}
 
         {/* QR section */}
-        {method === 'qr' && <QRCodePlaceholder amount={total} />}
+        {method === 'qr' && <PromptPayQRCode amount={total} />}
 
         {error && (
           <p style={{ color: 'var(--danger-color)', fontSize: 13, marginBottom: 12 }}>⚠ {error}</p>
