@@ -172,6 +172,20 @@ export default function OrdersPage() {
     }
   };
 
+  const isCustomer = currentUser?.role === 'customer';
+  const isAdmin = currentUser?.role === 'admin';
+
+  // For Customers, only show orders belonging to them
+  const userVisibleOrders = useMemo(() => {
+    if (isCustomer && currentUser) {
+      return orders.filter(o =>
+        (o.customer && (o.customer.id === currentUser.id || o.customer.username === currentUser.username)) ||
+        (o.cashier && o.cashier.username === currentUser.username)
+      );
+    }
+    return orders;
+  }, [orders, currentUser, isCustomer]);
+
   // Filter & Search Logic
   const filteredOrders = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -191,7 +205,7 @@ export default function OrdersPage() {
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    return orders.filter(order => {
+    return userVisibleOrders.filter(order => {
       const orderDateStr = (order.createdAt || '').slice(0, 10);
       const orderDate = new Date(order.createdAt || 0);
       const orderNo = (order.orderNo || formatOrderNo(order)).toLowerCase();
@@ -247,9 +261,7 @@ export default function OrdersPage() {
       if (sortBy === 'lowest') return a.total - b.total;
       return 0;
     });
-  }, [orders, searchQuery, paymentFilter, cashierFilter, dateFilter, customStartDate, customEndDate, sortBy]);
-
-  const isAdmin = currentUser?.role === 'admin';
+  }, [userVisibleOrders, searchQuery, paymentFilter, cashierFilter, dateFilter, customStartDate, customEndDate, sortBy]);
 
   // Overall Statistics from Filtered Data
   const stats = useMemo(() => {
@@ -275,7 +287,7 @@ export default function OrdersPage() {
   if (loading) {
     return (
       <div className="orders-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: 'var(--text-muted)' }}>กำลังโหลดข้อมูลประวัติการขาย...</p>
+        <p style={{ color: 'var(--text-muted)' }}>กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
@@ -286,41 +298,51 @@ export default function OrdersPage() {
       <div className="page-header orders-page-header">
         <div>
           <div className="orders-header-title-row">
-            <h1>Sales History</h1>
-            <span className="orders-count-badge">{orders.length} บิลทั้งหมด</span>
+            <h1>{isCustomer ? 'My Orders' : 'Sales History'}</h1>
+            <span className="orders-count-badge">
+              {isCustomer ? `${userVisibleOrders.length} รายการสั่งซื้อ` : `${userVisibleOrders.length} บิลทั้งหมด`}
+            </span>
           </div>
-          <p>ตรวจสอบรายการขายย้อนหลัง ค้นหาเลขที่บิล พิมพ์ใบเสร็จ และจัดการยอดขาย</p>
+          <p>
+            {isCustomer
+              ? 'ตรวจสอบรายการสั่งซื้อของคุณ เลขที่บิล และพิมพ์ใบเสร็จ'
+              : 'ตรวจสอบรายการขายย้อนหลัง ค้นหาเลขที่บิล พิมพ์ใบเสร็จ และจัดการยอดขาย'}
+          </p>
         </div>
 
         <div className="orders-header-actions">
-          <button
-            type="button"
-            className="btn-secondary btn-export"
-            onClick={handleExportCSV}
-            title="Export Orders as CSV for Excel"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Export CSV
-          </button>
-          <button
-            type="button"
-            className="btn-secondary btn-export"
-            onClick={handleExportJSON}
-            title="Export Orders as JSON"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-            </svg>
-            Export JSON
-          </button>
+          {!isCustomer && (
+            <>
+              <button
+                type="button"
+                className="btn-secondary btn-export"
+                onClick={handleExportCSV}
+                title="Export Orders as CSV for Excel"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export CSV
+              </button>
+              <button
+                type="button"
+                className="btn-secondary btn-export"
+                onClick={handleExportJSON}
+                title="Export Orders as JSON"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                </svg>
+                Export JSON
+              </button>
+            </>
+          )}
           <Link href="/" className="btn-primary btn-go-pos">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="3" width="20" height="14" rx="2"/>
               <path d="M8 21h8M12 17v4"/>
             </svg>
-            เปิดหน้าขาย (POS)
+            {isCustomer ? 'เลือกซื้อสินค้าหน้าร้าน →' : 'เปิดหน้าขาย (POS)'}
           </Link>
         </div>
       </div>
@@ -328,7 +350,7 @@ export default function OrdersPage() {
       {/* ── Summary Stats ── */}
       <div className="stats-grid orders-stats-grid">
         <StatCard
-          label="ยอดขายรวม (ตามตัวกรอง)"
+          label={isCustomer ? 'ยอดสั่งซื้อรวม (ตามตัวกรอง)' : 'ยอดขายรวม (ตามตัวกรอง)'}
           value={`฿${fmt(stats.totalRevenue)}`}
           sub={`${stats.totalOrdersCount} บิล • รวม ${stats.totalItemsCount} ชิ้น`}
           colorClass="blue"
@@ -339,7 +361,7 @@ export default function OrdersPage() {
           }
         />
         <StatCard
-          label="จำนวนบิลทั้งหมด"
+          label={isCustomer ? 'จำนวนคำสั่งซื้อ' : 'จำนวนบิลทั้งหมด'}
           value={stats.totalOrdersCount.toLocaleString('th-TH')}
           sub={dateFilter === 'today' ? 'เฉพาะวันนี้' : dateFilter === 'all' ? 'ประวัติทั้งหมด' : 'ตามช่วงเวลาที่เลือก'}
           colorClass="purple"
@@ -351,22 +373,24 @@ export default function OrdersPage() {
             </svg>
           }
         />
-        <StatCard
-          label="กำไรสุทธิรวม"
-          value={isAdmin ? `฿${fmt(stats.totalProfit)}` : '🔒 เฉพาะ Admin'}
-          sub={isAdmin ? `Margin ${stats.profitMargin}% • ทุน ฿${fmt(stats.totalCost)}` : 'พนักงานขายไม่สามารถดูต้นทุน/กำไร'}
-          colorClass="green"
-          icon={
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
-            </svg>
-          }
-        />
+        {!isCustomer && (
+          <StatCard
+            label="กำไรสุทธิรวม"
+            value={isAdmin ? `฿${fmt(stats.totalProfit)}` : '🔒 เฉพาะ Admin'}
+            sub={isAdmin ? `Margin ${stats.profitMargin}% • ทุน ฿${fmt(stats.totalCost)}` : 'พนักงานขายไม่สามารถดูต้นทุน/กำไร'}
+            colorClass="green"
+            icon={
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+              </svg>
+            }
+          />
+        )}
         <StatCard
           label="ยอดเฉลี่ยต่อบิล"
           value={`฿${fmt(stats.avgOrderValue)}`}
           sub="Average Basket Size"
-          colorClass="red"
+          colorClass={isCustomer ? 'green' : 'red'}
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>

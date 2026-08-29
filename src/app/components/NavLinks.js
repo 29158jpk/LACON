@@ -15,12 +15,14 @@ export default function NavLinks() {
     return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
   }, []);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const role = currentUser?.role || 'guest';
+  const isAdmin = role === 'admin';
+  const isCustomer = role === 'customer';
 
   const links = [
     {
       href: '/',
-      label: 'POS',
+      label: isCustomer ? 'Shop / ร้านค้า' : 'POS',
       id: 'nav-pos',
       adminOnly: false,
       icon: (
@@ -32,7 +34,7 @@ export default function NavLinks() {
     },
     {
       href: '/orders',
-      label: 'Sales History',
+      label: isCustomer ? 'My Orders' : 'Sales History',
       id: 'nav-orders',
       adminOnly: false,
       icon: (

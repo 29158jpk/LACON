@@ -424,7 +424,7 @@ export default function Inventory() {
             การจัดการรายการสินค้า, เพิ่ม/แก้ไข/ลบสินค้า, นำเข้า/ส่งออก, และปรับสต็อกสินค้า สงวนสิทธิ์สำหรับระดับผู้จัดการร้านเท่านั้น
           </p>
           <div className="access-current-user">
-            ผู้ใช้งานปัจจุบัน: <strong>{currentUser?.name || 'พนักงาน'}</strong> (สิทธิ์: Employee)
+            ผู้ใช้งานปัจจุบัน: <strong>{currentUser?.name || 'บุคคลทั่วไป (ยังไม่ได้เข้าสู่ระบบ)'}</strong> (สิทธิ์: {currentUser?.role ? currentUser.role.toUpperCase() : 'Guest'})
           </div>
           <div className="access-denied-actions">
             <Link href="/" className="btn-secondary" style={{ textDecoration: 'none' }}>

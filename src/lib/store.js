@@ -7,6 +7,7 @@
 import mockProducts from '../data/products.json' with { type: 'json' };
 import { generateSKU, generateBarcode } from './barcode.js';
 import { cleanImageUrl } from './imageHelper.js';
+import { hashPasswordSync, isValidEmail, isValidUsername } from './authHelper.js';
 
 const PRODUCTS_KEY = 'horizonpos_products';
 const ORDERS_KEY = 'horizonpos_orders';
@@ -18,8 +19,10 @@ export const DEFAULT_USERS = [
     id: 'u-admin',
     name: 'ผู้จัดการ (Admin)',
     username: 'admin',
+    email: 'admin@horizonpos.com',
     pin: '1111',
     password: 'admin',
+    passwordHash: hashPasswordSync('admin'),
     role: 'admin',
     avatarColor: '#3b82f6',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -28,8 +31,10 @@ export const DEFAULT_USERS = [
     id: 'u-cashier1',
     name: 'สมชาย ใจดี',
     username: 'cashier1',
+    email: 'cashier1@horizonpos.com',
     pin: '1234',
     password: 'cashier1',
+    passwordHash: hashPasswordSync('cashier1'),
     role: 'employee',
     avatarColor: '#10b981',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -38,8 +43,10 @@ export const DEFAULT_USERS = [
     id: 'u-cashier2',
     name: 'สมหญิง รักบริการ',
     username: 'cashier2',
+    email: 'cashier2@horizonpos.com',
     pin: '5678',
     password: 'cashier2',
+    passwordHash: hashPasswordSync('cashier2'),
     role: 'employee',
     avatarColor: '#8b5cf6',
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -262,19 +269,97 @@ export function saveUsers(users) {
 
 export function addUser(userData) {
   const users = getUsers();
+  const cleanUser = (userData.username || '').trim().toLowerCase() || `user${Date.now().toString().slice(-4)}`;
+  const cleanEmail = (userData.email || '').trim().toLowerCase() || `${cleanUser}@horizonpos.com`;
+
+  if (users.some(u => (u.username || '').toLowerCase() === cleanUser)) {
+    throw new Error(`Username "${cleanUser}" มีอยู่ในระบบแล้ว`);
+  }
+
+  const role = userData.role === 'admin' ? 'admin' : (userData.role === 'customer' ? 'customer' : 'employee');
+  const password = userData.password || '123456';
+
   const newUser = {
     ...userData,
     id: `u-${Date.now()}`,
     name: (userData.name || '').trim(),
-    username: (userData.username || '').trim().toLowerCase() || `user${Date.now().toString().slice(-4)}`,
+    username: cleanUser,
+    email: cleanEmail,
     pin: (userData.pin || '0000').trim(),
-    password: userData.password || '123456',
-    role: userData.role === 'admin' ? 'admin' : 'employee',
-    avatarColor: userData.avatarColor || (userData.role === 'admin' ? '#3b82f6' : '#10b981'),
+    password,
+    passwordHash: hashPasswordSync(password),
+    role,
+    avatarColor: userData.avatarColor || (role === 'admin' ? '#3b82f6' : role === 'employee' ? '#10b981' : '#8b5cf6'),
     createdAt: new Date().toISOString(),
   };
   const updated = [...users, newUser];
   saveUsers(updated);
+  return newUser;
+}
+
+export function registerUser({ name, username, email, password, confirmPassword }) {
+  const cleanName = (name || '').trim();
+  const cleanUser = (username || '').trim().toLowerCase();
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPass = password || '';
+  const cleanConfirm = confirmPassword || '';
+
+  if (!cleanName) {
+    throw new Error('กรุณาระบุชื่อ-นามสกุล หรือชื่อที่ใช้แสดง');
+  }
+  if (!cleanUser) {
+    throw new Error('กรุณาระบุ Username');
+  }
+  if (!isValidUsername(cleanUser)) {
+    throw new Error('Username ต้องมีความยาว 3-24 ตัวอักษร (ภาษาอังกฤษ ตัวเลข _ หรือ -)');
+  }
+  if (!cleanEmail) {
+    throw new Error('กรุณาระบุ Email');
+  }
+  if (!isValidEmail(cleanEmail)) {
+    throw new Error('รูปแบบ Email ไม่ถูกต้อง (ตัวอย่าง: name@example.com)');
+  }
+  if (!cleanPass) {
+    throw new Error('กรุณาระบุรหัสผ่าน');
+  }
+  if (cleanPass.length < 6) {
+    throw new Error('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
+  }
+  if (cleanPass !== cleanConfirm) {
+    throw new Error('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+  }
+
+  const users = getUsers();
+
+  // Check username uniqueness (case-insensitive)
+  if (users.some(u => (u.username || '').toLowerCase() === cleanUser)) {
+    throw new Error(`Username "${cleanUser}" มีผู้ใช้งานในระบบแล้ว`);
+  }
+
+  // Check email uniqueness (case-insensitive)
+  if (users.some(u => (u.email || '').toLowerCase() === cleanEmail)) {
+    throw new Error(`Email "${cleanEmail}" มีผู้ใช้งานในระบบแล้ว`);
+  }
+
+  // Generate random avatar color
+  const avatarColors = ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
+  const avatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+
+  // ALWAYS ASSIGN ROLE = 'customer' (100% strictly enforced)
+  const newUser = {
+    id: `u-cust-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    name: cleanName,
+    username: cleanUser,
+    email: cleanEmail,
+    role: 'customer', // strictly customer
+    passwordHash: hashPasswordSync(cleanPass),
+    avatarColor,
+    createdAt: new Date().toISOString(),
+  };
+
+  const updated = [...users, newUser];
+  saveUsers(updated);
+  setCurrentUser(newUser);
   return newUser;
 }
 
@@ -307,19 +392,15 @@ export function deleteUser(id) {
 export function getCurrentUser() {
   const stored = readLS(CURRENT_USER_KEY);
   if (stored && stored.id) {
+    // Validate stored user against latest users database
+    const users = getUsers();
+    const freshUser = users.find(u => u.id === stored.id);
+    if (freshUser) {
+      return freshUser;
+    }
     return stored;
   }
-  // On first load if no users initialized yet, default to admin
-  if (isClient()) {
-    const hasInit = localStorage.getItem('horizonpos_initialized');
-    if (!hasInit) {
-      localStorage.setItem('horizonpos_initialized', 'true');
-      const users = getUsers();
-      const defaultUser = users[0] || DEFAULT_USERS[0];
-      writeLS(CURRENT_USER_KEY, defaultUser);
-      return defaultUser;
-    }
-  }
+  // NEVER fallback to admin — return null when not logged in
   return null;
 }
 
@@ -340,26 +421,39 @@ export function loginWithPin(pin) {
   const cleanPin = (pin || '').trim();
   if (!cleanPin) throw new Error('กรุณาระบุ PIN');
   const users = getUsers();
-  const matched = users.find(u => u.pin === cleanPin);
+  const matched = users.find(u => u.pin && u.pin === cleanPin);
   if (!matched) {
-    throw new Error('รหัส PIN ไม่ถูกต้อง');
+    throw new Error('รหัส PIN ไม่ถูกต้อง หรือไม่มีบัญชีที่ผูกกับ PIN นี้');
   }
   setCurrentUser(matched);
   return matched;
 }
 
-export function loginWithPassword(username, password) {
-  const cleanUser = (username || '').trim().toLowerCase();
-  const cleanPass = (password || '').trim();
-  if (!cleanUser) throw new Error('กรุณากรอก Username');
+export function loginWithPassword(identifier, password) {
+  const cleanId = (identifier || '').trim().toLowerCase();
+  const cleanPass = password || '';
+  if (!cleanId) throw new Error('กรุณากรอก Username หรือ Email');
   if (!cleanPass) throw new Error('กรุณากรอกรหัสผ่าน');
 
   const users = getUsers();
-  const matched = users.find(
-    u => u.username.toLowerCase() === cleanUser && (u.password === cleanPass || u.pin === cleanPass)
-  );
+  const passHash = hashPasswordSync(cleanPass);
+
+  const matched = users.find(u => {
+    const matchId =
+      (u.username && u.username.toLowerCase() === cleanId) ||
+      (u.email && u.email.toLowerCase() === cleanId);
+    if (!matchId) return false;
+
+    // Check hashed password or legacy plaintext password or PIN
+    const matchPass =
+      (u.passwordHash && u.passwordHash === passHash) ||
+      (u.password && u.password === cleanPass) ||
+      (u.pin && u.pin === cleanPass);
+    return matchPass;
+  });
+
   if (!matched) {
-    throw new Error('Username หรือรหัสผ่านไม่ถูกต้อง');
+    throw new Error('Username / Email หรือรหัสผ่านไม่ถูกต้อง');
   }
   setCurrentUser(matched);
   return matched;
@@ -402,6 +496,7 @@ export function getOrders() {
     ...o,
     orderNo: formatOrderNo(o),
     cashier: o.cashier || { id: 'u-admin', name: 'ผู้จัดการ (Admin)', username: 'admin', role: 'admin' },
+    customer: o.customer || null,
     cashReceived: o.cashReceived !== undefined ? o.cashReceived : (o.paymentMethod === 'cash' ? o.total : null),
     change: o.change !== undefined ? o.change : 0,
   }));
@@ -432,7 +527,7 @@ export function restoreStock(items) {
  * Create a new order, deduct stock, and persist everything.
  * @param {Array} items  - cart items [{id, name, price, cost, qty, sku, barcode}]
  * @param {'cash'|'qr'} paymentMethod
- * @param {object} [extra] - { cashReceived, change, notes, cashier }
+ * @param {object} [extra] - { cashReceived, change, notes, cashier, customer }
  * @returns {object} The saved order
  */
 export function addOrder(items, paymentMethod, extra = {}) {
@@ -440,17 +535,46 @@ export function addOrder(items, paymentMethod, extra = {}) {
   deductStock(items);
 
   const currentUser = getCurrentUser();
-  const cashier = extra.cashier || (currentUser ? {
-    id: currentUser.id,
-    name: currentUser.name,
-    username: currentUser.username,
-    role: currentUser.role,
-  } : {
-    id: 'u-admin',
-    name: 'ผู้จัดการ (Admin)',
-    username: 'admin',
-    role: 'admin',
-  });
+  let cashier = null;
+  let customer = null;
+
+  if (currentUser) {
+    if (currentUser.role === 'customer') {
+      customer = {
+        id: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        email: currentUser.email || '',
+      };
+      cashier = {
+        id: 'self-service',
+        name: `${currentUser.name} (ลูกค้าสั่งซื้อ)`,
+        username: currentUser.username,
+        role: 'customer',
+      };
+    } else {
+      cashier = {
+        id: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        role: currentUser.role,
+      };
+    }
+  } else {
+    cashier = {
+      id: 'guest',
+      name: 'ลูกค้าทั่วไป (หน้าร้าน)',
+      username: 'guest',
+      role: 'customer',
+    };
+  }
+
+  if (extra.cashier) {
+    cashier = extra.cashier;
+  }
+  if (extra.customer) {
+    customer = extra.customer;
+  }
 
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -465,6 +589,7 @@ export function addOrder(items, paymentMethod, extra = {}) {
     id: Date.now().toString(),
     orderNo,
     cashier,
+    customer,
     items: items.map(i => ({
       id: i.id,
       name: i.name,
