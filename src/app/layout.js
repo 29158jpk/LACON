@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "HorizonPOS — ระบบขายหน้าร้าน",
+  title: "Horizon x CPU — ระบบขายหน้าร้าน",
   description: "ระบบ POS พร้อม Dashboard, Inventory และระบบชำระเงิน",
 };
 
@@ -29,7 +29,7 @@ export default function RootLayout({ children }) {
               <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#3b82f6" strokeWidth="2"/>
               <path d="M12 7V17M7 12H17" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            Horizon<span>POS</span>
+            Horizon <span>x CPU</span>
           </div>
 
           {/* Client-side nav with active detection & role badges */}

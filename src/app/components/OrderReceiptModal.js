@@ -139,7 +139,7 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
                     <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#2563eb" strokeWidth="2.5"/>
                     <path d="M12 7V17M7 12H17" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round"/>
                   </svg>
-                  <span>HorizonPOS</span>
+                  <span>Horizon x CPU</span>
                 </div>
                 <div className="receipt-store-subtitle">ใบเสร็จรับเงิน / ใบกำกับภาษีอย่างย่อ</div>
                 <div className="receipt-store-address">สาขาหลัก • โทร. 02-123-4567 • TAX ID: 0-1055-67890-12-3</div>
@@ -264,7 +264,7 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
 
               {/* Footer */}
               <div className="receipt-footer-center">
-                <p style={{ margin: 0, fontWeight: 600 }}>ขอบคุณที่ใช้บริการ HorizonPOS</p>
+                <p style={{ margin: 0, fontWeight: 600 }}>ขอบคุณที่ใช้บริการ Horizon x CPU</p>
                 <p style={{ margin: '4px 0 0 0', fontSize: 11, color: '#64748b' }}>
                   กรุณาเก็บใบเสร็จไว้เป็นหลักฐานการซื้อสินค้า
                 </p>

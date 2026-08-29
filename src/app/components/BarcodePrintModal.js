@@ -115,7 +115,7 @@ export default function BarcodePrintModal({ product, products = [], onClose }) {
               const barcodeValue = item.barcode || item.sku || item.id;
               return Array.from({ length: count }).map((_, idx) => (
                 <div key={`${item.id}-${idx}`} className={`barcode-label-card ${labelSize}`}>
-                  <div className="label-store-name">Horizon POS</div>
+                  <div className="label-store-name">Horizon x CPU</div>
                   <div className="label-product-name">{item.name}</div>
                   
                   <div className="label-barcode-wrapper">

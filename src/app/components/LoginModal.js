@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { getUsers, loginWithPin, loginWithPassword, switchUserById } from '../../lib/store';
 
-export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeeded = null, title = 'เข้าสู่ระบบ HorizonPOS' }) {
+export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeeded = null, title = 'เข้าสู่ระบบ Horizon x CPU' }) {
+  const [mounted, setMounted] = useState(false);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [pin, setPin] = useState('');
@@ -12,6 +14,10 @@ export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeed
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -47,7 +53,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeed
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, loginMode, pin, selectedUser]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const handlePinDigit = (digit) => {
     if (pin.length < 6) {
@@ -126,7 +132,7 @@ export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeed
     }
   };
 
-  return (
+  const modalContent = (
     <div className="modal-overlay auth-modal-overlay" onClick={e => e.target === e.currentTarget && onClose && onClose()}>
       <div className="modal auth-modal-container" role="dialog" aria-modal="true">
         <div className="modal-header" style={{ marginBottom: 16 }}>
@@ -346,4 +352,6 @@ export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeed
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

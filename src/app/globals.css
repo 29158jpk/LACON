@@ -454,19 +454,22 @@ body {
 .checkout-btn:disabled { background: #334155; cursor: not-allowed; box-shadow: none; transform: none; opacity: 1; }
 
 /* ─────────────────────────────────────────────
-   Payment Modal
+   Modal Base Styles
    ───────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100vh;
   background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 24px 16px;
+  z-index: 99999;
   overflow-y: auto;
-  z-index: 1000;
   animation: fadeIn 0.2s ease;
 }
 
@@ -475,20 +478,23 @@ body {
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 28px;
-  width: 440px;
-  max-width: 95vw;
-  max-height: min(90vh, 780px);
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
   margin: auto;
-  overflow-y: auto;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
-  animation: slideUp 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
+  flex-shrink: 0;
 }
 .modal-header h3 { font-size: 18px; font-weight: 700; }
 .modal-close {
@@ -1022,6 +1028,10 @@ body {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(16px) scale(0.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modalPopIn {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(24px); }
@@ -2536,7 +2546,24 @@ body {
    Staff Management Styles
    ───────────────────────────────────────────── */
 .staff-modal-container {
-  width: 540px;
+  width: 580px;
+  max-width: calc(100vw - 32px);
+  max-height: min(88vh, 720px);
+}
+
+.staff-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.staff-form {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .role-selection-grid {
@@ -2586,8 +2613,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  min-height: 0;
   max-height: 380px;
   overflow-y: auto;
+  padding-right: 4px;
+  margin-top: 4px;
 }
 .staff-list-item {
   display: flex;
