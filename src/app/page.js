@@ -6,6 +6,7 @@ import { getProducts, addOrder, findProductByBarcodeOrSku } from '../lib/store';
 import { playScanSound } from '../lib/barcode';
 import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
+import OrderReceiptModal from './components/OrderReceiptModal';
 
 // ── QR Placeholder (SVG pattern) ──────────────────────────────────────────────
 function QRCodePlaceholder({ amount }) {
@@ -66,8 +67,11 @@ function PaymentModal({ cart, total, onClose, onSuccess }) {
     setLoading(true);
     setError('');
     try {
-      addOrder(cart, method);
-      onSuccess(method, change > 0 ? change : 0);
+      const savedOrder = addOrder(cart, method, {
+        cashReceived: method === 'cash' ? cashAmount : total,
+        change: method === 'cash' && change > 0 ? change : 0,
+      });
+      onSuccess(method, change > 0 ? change : 0, savedOrder);
     } catch (err) {
       setError(err.message || 'เกิดข้อผิดพลาด');
     } finally {
@@ -185,6 +189,7 @@ export default function POS() {
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [viewReceiptModal, setViewReceiptModal] = useState(null);
   const [toast, setToast] = useState(null);
 
   const searchInputRef = useRef(null);
@@ -339,7 +344,7 @@ export default function POS() {
   const total = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const cartCount = cart.reduce((s, i) => s + i.qty, 0);
 
-  const handlePaymentSuccess = useCallback((method, change) => {
+  const handlePaymentSuccess = useCallback((method, change, savedOrder) => {
     setShowPayment(false);
     setCart([]);
     // Reload products to reflect deducted stock
@@ -348,6 +353,9 @@ export default function POS() {
       ? `ชำระเสร็จสิ้น! เงินทอน ฿${change.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`
       : 'ชำระด้วย QR เสร็จสิ้น!';
     showToast(msg, 'success');
+    if (savedOrder) {
+      setViewReceiptModal(savedOrder);
+    }
   }, [showToast]);
 
   const getStockStatus = (stock) => {
@@ -563,6 +571,14 @@ export default function POS() {
             handleBarcodeScan(code);
             setShowCameraScanner(false);
           }}
+        />
+      )}
+
+      {/* ── Receipt Modal ── */}
+      {viewReceiptModal && (
+        <OrderReceiptModal
+          order={viewReceiptModal}
+          onClose={() => setViewReceiptModal(null)}
         />
       )}
 

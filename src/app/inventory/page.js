@@ -6,6 +6,9 @@ import {
   addProduct,
   updateProduct,
   deleteProduct,
+  exportProductsJSON,
+  importProductsJSON,
+  resetToDefaultProducts,
 } from '../../lib/store';
 import { generateSKU, generateBarcode } from '../../lib/barcode';
 import { cleanImageUrl, compressImageFile, getCategoryPlaceholder } from '../../lib/imageHelper';
@@ -444,6 +447,46 @@ export default function Inventory() {
     return null;
   };
 
+  const importFileInputRef = useRef(null);
+
+  const handleExport = () => {
+    try {
+      exportProductsJSON();
+      showToast('ส่งออกไฟล์สำรองข้อมูลสินค้าเรียบร้อย (JSON)');
+    } catch {
+      showToast('เกิดข้อผิดพลาดในการส่งออกข้อมูล', 'error');
+    }
+  };
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result);
+        if (!Array.isArray(json)) throw new Error('ไฟล์ต้องเป็นอาร์เรย์ของสินค้า');
+        importProductsJSON(json);
+        reload();
+        showToast(`นำเข้าสินค้าเรียบร้อย (${json.length} รายการ)`);
+      } catch (err) {
+        showToast('ไฟล์ JSON ไม่ถูกต้อง หรือโครงสร้างข้อมูลผิดพลาด', 'error');
+      } finally {
+        if (importFileInputRef.current) importFileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleReset = () => {
+    if (window.confirm('คุณต้องการคืนค่าสินค้าทั้งหมดกลับเป็นค่าเริ่มต้นหรือไม่?')) {
+      resetToDefaultProducts();
+      reload();
+      showToast('คืนค่าสินค้าเริ่มต้นเรียบร้อย', 'info');
+    }
+  };
+
   return (
     <>
       <div className="inventory-page">
@@ -451,6 +494,15 @@ export default function Inventory() {
           <h1>Inventory</h1>
           <p>จัดการสินค้า, ราคา, SKU, Barcode และ Stock</p>
         </div>
+
+        {/* Hidden Import File Input */}
+        <input
+          type="file"
+          ref={importFileInputRef}
+          accept=".json,application/json"
+          style={{ display: 'none' }}
+          onChange={handleImportFile}
+        />
 
         {/* ── Toolbar ── */}
         <div className="inventory-toolbar">
@@ -468,18 +520,48 @@ export default function Inventory() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: 10, marginLeft: 'auto', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto', flexWrap: 'wrap' }}>
+            <button
+              id="btn-export-json"
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 13px', fontSize: 13 }}
+              onClick={handleExport}
+              title="ดาวน์โหลดไฟล์สำรองข้อมูลสินค้าทั้งหมด"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              สำรองข้อมูล (Export)
+            </button>
+
+            <button
+              id="btn-import-json"
+              className="btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 13px', fontSize: 13 }}
+              onClick={() => importFileInputRef.current?.click()}
+              title="นำเข้าไฟล์สำรองข้อมูลสินค้า JSON"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              นำเข้า (Import)
+            </button>
+
             <button
               id="btn-print-all-barcodes"
               className="btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', fontSize: 13 }}
               onClick={() => setModal({ type: 'print', product: null })}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
                 <rect x="6" y="14" width="12" height="8"/>
               </svg>
-              พิมพ์ Barcode ทั้งหมด
+              พิมพ์ Barcode
             </button>
 
             <button id="add-product-btn" className="btn-add" onClick={() => setModal({ type: 'add' })}>

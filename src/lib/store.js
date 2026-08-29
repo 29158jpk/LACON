@@ -144,6 +144,31 @@ export function deleteProduct(id) {
   return products;
 }
 
+/** Export all products to a downloadable JSON file */
+export function exportProductsJSON() {
+  const products = getProducts();
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(products, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `horizonpos_products_backup_${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+}
+
+/** Import products from a JSON file */
+export function importProductsJSON(importedArray) {
+  if (!Array.isArray(importedArray)) throw new Error('ไฟล์ JSON ไม่ถูกต้อง (ต้องเป็นรายการสินค้า)');
+  saveProducts(importedArray);
+  return importedArray;
+}
+
+/** Reset all products back to default mock data */
+export function resetToDefaultProducts() {
+  saveProducts(mockProducts);
+  return mockProducts;
+}
+
 /**
  * Search for a product by exact Barcode, SKU, or ID
  * @param {string} code 
@@ -184,23 +209,60 @@ export function deductStock(items) {
 // Orders
 // ─────────────────────────────────────────────
 
+/** Format or generate clean readable Order Bill Number */
+export function formatOrderNo(order) {
+  if (order.orderNo) return order.orderNo;
+  const datePart = (order.createdAt || '').slice(0, 10).replace(/-/g, '') || new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const idPart = (order.id || Date.now().toString()).slice(-4);
+  return `ORD-${datePart}-${idPart}`;
+}
+
 export function getOrders() {
-  return readLS(ORDERS_KEY) || [];
+  const orders = readLS(ORDERS_KEY) || [];
+  return orders.map(o => ({
+    ...o,
+    orderNo: formatOrderNo(o),
+    cashReceived: o.cashReceived !== undefined ? o.cashReceived : (o.paymentMethod === 'cash' ? o.total : null),
+    change: o.change !== undefined ? o.change : 0,
+  }));
 }
 
 export function saveOrders(orders) {
   writeLS(ORDERS_KEY, orders);
 }
 
+export function getOrderById(id) {
+  const orders = getOrders();
+  return orders.find(o => o.id === id || o.orderNo === id) || null;
+}
+
+/** Restore stock for items (e.g. upon order cancellation/refund) */
+export function restoreStock(items) {
+  if (!Array.isArray(items) || items.length === 0) return getProducts();
+  const products = getProducts();
+  const updated = products.map(p => {
+    const item = items.find(i => i.id === p.id);
+    return item ? { ...p, stock: p.stock + (Number(item.qty) || 0) } : p;
+  });
+  saveProducts(updated);
+  return updated;
+}
+
 /**
  * Create a new order, deduct stock, and persist everything.
  * @param {Array} items  - cart items [{id, name, price, cost, qty, sku, barcode}]
  * @param {'cash'|'qr'} paymentMethod
+ * @param {object} [extra] - { cashReceived, change, notes }
  * @returns {object} The saved order
  */
-export function addOrder(items, paymentMethod) {
+export function addOrder(items, paymentMethod, extra = {}) {
   // Deduct stock first (throws on insufficient stock)
   deductStock(items);
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const orderNo = `ORD-${dateStr}-${randomSuffix}`;
 
   const total = items.reduce((s, i) => s + i.price * i.qty, 0);
   const totalCost = items.reduce((s, i) => s + (i.cost || 0) * i.qty, 0);
@@ -208,6 +270,7 @@ export function addOrder(items, paymentMethod) {
 
   const order = {
     id: Date.now().toString(),
+    orderNo,
     items: items.map(i => ({
       id: i.id,
       name: i.name,
@@ -221,12 +284,87 @@ export function addOrder(items, paymentMethod) {
     totalCost,
     profit,
     paymentMethod,
-    createdAt: new Date().toISOString(),
+    cashReceived: extra.cashReceived !== undefined ? extra.cashReceived : (paymentMethod === 'cash' ? total : null),
+    change: extra.change !== undefined ? extra.change : 0,
+    notes: extra.notes || '',
+    createdAt: now.toISOString(),
   };
 
-  const orders = getOrders();
+  const orders = readLS(ORDERS_KEY) || [];
   saveOrders([...orders, order]);
   return order;
+}
+
+/**
+ * Delete / Refund an order and optionally return items to inventory stock
+ * @param {string} id
+ * @param {boolean} shouldRestoreStock
+ * @returns {Array} Updated orders list
+ */
+export function deleteOrder(id, shouldRestoreStock = true) {
+  const orders = readLS(ORDERS_KEY) || [];
+  const orderToDelete = orders.find(o => o.id === id);
+  if (!orderToDelete) return getOrders();
+
+  if (shouldRestoreStock && Array.isArray(orderToDelete.items)) {
+    restoreStock(orderToDelete.items);
+  }
+
+  const updatedOrders = orders.filter(o => o.id !== id);
+  saveOrders(updatedOrders);
+  return getOrders();
+}
+
+/** Clear all orders */
+export function clearAllOrders() {
+  saveOrders([]);
+  return [];
+}
+
+/** Export orders to CSV file */
+export function exportOrdersCSV() {
+  const orders = getOrders();
+  if (orders.length === 0) throw new Error('ไม่มีข้อมูลประวัติการขายให้ส่งออก');
+
+  const headers = ['เลขที่บิล', 'วันที่/เวลา', 'วิธีชำระเงิน', 'จำนวนรายการ', 'ยอดรวม (฿)', 'ต้นทุนรวม (฿)', 'กำไรสุทธิ (฿)', 'รายการสินค้า'];
+  const rows = orders.map(o => {
+    const itemSummary = o.items.map(i => `${i.name} (x${i.qty})`).join('; ');
+    const dateFormatted = new Date(o.createdAt).toLocaleString('th-TH');
+    const payment = o.paymentMethod === 'cash' ? 'เงินสด' : 'QR Code';
+    return [
+      `"${o.orderNo || o.id}"`,
+      `"${dateFormatted}"`,
+      `"${payment}"`,
+      o.items.reduce((s, i) => s + i.qty, 0),
+      o.total.toFixed(2),
+      o.totalCost.toFixed(2),
+      o.profit.toFixed(2),
+      `"${itemSummary.replace(/"/g, '""')}"`,
+    ];
+  });
+
+  const csvContent = "\uFEFF" + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.setAttribute('href', url);
+  link.setAttribute('download', `horizonpos_orders_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Export orders to JSON file */
+export function exportOrdersJSON() {
+  const orders = getOrders();
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(orders, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `horizonpos_orders_${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
 }
 
 // ─────────────────────────────────────────────
