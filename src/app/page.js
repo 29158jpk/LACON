@@ -8,6 +8,7 @@ import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
 import OrderReceiptModal from './components/OrderReceiptModal';
 import PaymentSuccessModal from './components/PaymentSuccessModal';
+import LoginModal from './components/LoginModal';
 import { PROMPTPAY_QR_BASE64 } from '../lib/promptpayQR';
 
 // ── PromptPay QR Component ───────────────────────────────────────────────────
@@ -60,7 +61,7 @@ function Toast({ message, type, onDone }) {
 }
 
 // ── Payment Modal ──────────────────────────────────────────────────────────────
-function PaymentModal({ cart, total, onClose, onSuccess }) {
+function PaymentModal({ cart, total, currentUser, onClose, onSuccess, onRequireAuth }) {
   const [method, setMethod] = useState(null);
   const [cashInput, setCashInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -71,9 +72,14 @@ function PaymentModal({ cart, total, onClose, onSuccess }) {
   const cashSufficient = cashAmount >= total;
 
   const canConfirm =
-    method === 'qr' || (method === 'cash' && cashSufficient);
+    Boolean(currentUser) && (method === 'qr' || (method === 'cash' && cashSufficient));
 
   const handleConfirm = async () => {
+    if (!currentUser) {
+      setError('กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำรายการ');
+      if (onRequireAuth) onRequireAuth();
+      return;
+    }
     if (!method) { setError('กรุณาเลือกวิธีชำระเงิน'); return; }
     setLoading(true);
     setError('');
@@ -84,7 +90,7 @@ function PaymentModal({ cart, total, onClose, onSuccess }) {
       });
       onSuccess(method, change > 0 ? change : 0, savedOrder);
     } catch (err) {
-      setError(err.message || 'เกิดข้อผิดพลาด');
+      setError(err.message || 'เกิดข้อผิดพลาดในการสร้างคำสั่งซื้อ');
     } finally {
       setLoading(false);
     }
@@ -200,6 +206,8 @@ export default function POS() {
   const [cart, setCart] = useState([]);
   const [showPayment, setShowPayment] = useState(false);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+  const [authModalConfig, setAuthModalConfig] = useState({ isOpen: false, tab: 'login' });
   const [viewReceiptModal, setViewReceiptModal] = useState(null);
   const [paymentSuccessOrder, setPaymentSuccessOrder] = useState(null);
   const [toast, setToast] = useState(null);
@@ -212,8 +220,13 @@ export default function POS() {
     setProducts(getProducts());
     setCurrentUser(getCurrentUser());
     const handleAuth = () => {
-      setCurrentUser(getCurrentUser());
+      const user = getCurrentUser();
+      setCurrentUser(user);
       setProducts(getProducts());
+      if (!user) {
+        // If logged out while payment modal was open, close payment modal
+        setShowPayment(false);
+      }
     };
     window.addEventListener('horizonpos_auth_change', handleAuth);
     return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
@@ -491,8 +504,19 @@ export default function POS() {
                 {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
-                <span>{currentUser?.role === 'admin' ? '👑' : '👤'}</span>
-                <span>ผู้ขาย: <strong style={{ color: 'var(--text-main)' }}>{currentUser?.name || 'Admin'}</strong></span>
+                <span>{currentUser?.role === 'admin' ? '👑' : currentUser?.role === 'customer' ? '🛍️' : currentUser ? '👤' : '🔒'}</span>
+                <span>
+                  {currentUser ? (
+                    <>
+                      {currentUser.role === 'customer' ? 'ผู้สั่งซื้อ: ' : 'ผู้ขาย: '}
+                      <strong style={{ color: 'var(--text-main)' }}>{currentUser.name}</strong> ({currentUser.role.toUpperCase()})
+                    </>
+                  ) : (
+                    <>
+                      สถานะ: <strong style={{ color: '#f59e0b' }}>ยังไม่เข้าสู่ระบบ (Guest)</strong>
+                    </>
+                  )}
+                </span>
               </div>
             </div>
             {cart.length > 0 && (
@@ -565,11 +589,17 @@ export default function POS() {
             </div>
             <button
               id="checkout-btn"
-              className="checkout-btn"
+              className={`checkout-btn ${!currentUser ? 'guest-checkout-btn' : ''}`}
               disabled={cart.length === 0}
-              onClick={() => setShowPayment(true)}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthPrompt(true);
+                  return;
+                }
+                setShowPayment(true);
+              }}
             >
-              ชำระเงิน
+              {currentUser ? 'ชำระเงิน' : '🔒 ชำระเงิน (ต้องเข้าสู่ระบบ)'}
             </button>
           </div>
         </div>
@@ -580,10 +610,91 @@ export default function POS() {
         <PaymentModal
           cart={cart}
           total={total}
+          currentUser={currentUser}
           onClose={() => setShowPayment(false)}
           onSuccess={handlePaymentSuccess}
+          onRequireAuth={() => {
+            setShowPayment(false);
+            setShowAuthPrompt(true);
+          }}
         />
       )}
+
+      {/* ── Auth Required Prompt Modal (เมื่อผู้ใช้ยังไม่ Login กดชำระเงิน) ── */}
+      {showAuthPrompt && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowAuthPrompt(false)}>
+          <div className="modal auth-required-prompt-modal" role="dialog" aria-modal="true" style={{ width: 440, textAlign: 'center', padding: '32px 26px' }}>
+            <div className="auth-prompt-icon-badge">
+              <span style={{ fontSize: 36 }}>🔒</span>
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: '16px 0 8px', color: 'var(--text-main)' }}>
+              กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำรายการ
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55, marginBottom: 24 }}>
+              คุณสามารถเลือกดูและเพิ่มสินค้าลงตะกร้าได้ตามปกติ แต่จำเป็นต้องเข้าสู่ระบบหรือสมัครสมาชิกก่อน เพื่อยืนยันคำสั่งซื้อ สแกน QR Code และตัดสต็อกสินค้าจริง
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button
+                type="button"
+                id="auth-prompt-login-btn"
+                className="btn-primary"
+                style={{ width: '100%', padding: '12px', fontSize: 14, fontWeight: 700, borderRadius: 10 }}
+                onClick={() => {
+                  setShowAuthPrompt(false);
+                  setAuthModalConfig({ isOpen: true, tab: 'login' });
+                }}
+              >
+                🔑 เข้าสู่ระบบ (Sign In)
+              </button>
+              <button
+                type="button"
+                id="auth-prompt-register-btn"
+                className="btn-secondary"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  borderRadius: 10,
+                  background: 'rgba(6, 182, 212, 0.12)',
+                  borderColor: 'rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                }}
+                onClick={() => {
+                  setShowAuthPrompt(false);
+                  setAuthModalConfig({ isOpen: true, tab: 'register' });
+                }}
+              >
+                📝 สมัครสมาชิก (Register)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{ width: '100%', padding: '10px', fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}
+                onClick={() => setShowAuthPrompt(false)}
+              >
+                ไว้คราวหลัง (ยกเลิก)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Login / Register Modal ── */}
+      <LoginModal
+        isOpen={authModalConfig.isOpen}
+        initialTab={authModalConfig.tab}
+        onClose={() => setAuthModalConfig({ isOpen: false, tab: 'login' })}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          setAuthModalConfig({ isOpen: false, tab: 'login' });
+          showToast(`ยินดีต้อนรับ ${user.name} (${user.role.toUpperCase()})`);
+          if (cart.length > 0) {
+            setShowPayment(true);
+          }
+        }}
+      />
 
       {/* ── Camera Scanner Modal ── */}
       {showCameraScanner && (

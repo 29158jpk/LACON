@@ -531,42 +531,46 @@ export function restoreStock(items) {
  * @returns {object} The saved order
  */
 export function addOrder(items, paymentMethod, extra = {}) {
-  // Deduct stock first (throws on insufficient stock)
+  // ── Strict Security & Session Verification ──
+  const currentUser = getCurrentUser();
+  if (!currentUser || !currentUser.id || !currentUser.role) {
+    throw new Error('กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำรายการ');
+  }
+
+  if (!items || items.length === 0) {
+    throw new Error('ไม่มีรายการสินค้าในตะกร้า');
+  }
+
+  // Deduct stock (throws error and halts if stock is insufficient)
   deductStock(items);
 
-  const currentUser = getCurrentUser();
   let cashier = null;
   let customer = null;
 
-  if (currentUser) {
-    if (currentUser.role === 'customer') {
-      customer = {
-        id: currentUser.id,
-        name: currentUser.name,
-        username: currentUser.username,
-        email: currentUser.email || '',
-      };
-      cashier = {
-        id: 'self-service',
-        name: `${currentUser.name} (ลูกค้าสั่งซื้อ)`,
-        username: currentUser.username,
-        role: 'customer',
-      };
-    } else {
-      cashier = {
-        id: currentUser.id,
-        name: currentUser.name,
-        username: currentUser.username,
-        role: currentUser.role,
-      };
-    }
-  } else {
+  if (currentUser.role === 'customer') {
+    customer = {
+      id: currentUser.id,
+      name: currentUser.name,
+      username: currentUser.username,
+      email: currentUser.email || '',
+    };
     cashier = {
-      id: 'guest',
-      name: 'ลูกค้าทั่วไป (หน้าร้าน)',
-      username: 'guest',
+      id: currentUser.id,
+      name: `${currentUser.name} (ลูกค้าสั่งซื้อ)`,
+      username: currentUser.username,
       role: 'customer',
     };
+  } else {
+    // Admin or Employee
+    cashier = {
+      id: currentUser.id,
+      name: currentUser.name,
+      username: currentUser.username,
+      role: currentUser.role,
+    };
+    if (extra.customer) {
+      customer = extra.customer;
+    }
   }
 
   if (extra.cashier) {

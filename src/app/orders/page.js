@@ -12,6 +12,7 @@ import {
   getUsers,
 } from '../../lib/store';
 import OrderReceiptModal from '../components/OrderReceiptModal';
+import LoginModal from '../components/LoginModal';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmt(num) {
@@ -85,6 +86,7 @@ export default function OrdersPage() {
   const [toast, setToast] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [staffList, setStaffList] = useState([]);
+  const [authModalConfig, setAuthModalConfig] = useState({ isOpen: false, tab: 'login' });
 
   // Filters & Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,12 +174,13 @@ export default function OrdersPage() {
     }
   };
 
-  const isCustomer = currentUser?.role === 'customer';
+  const isCustomer = !currentUser || currentUser?.role === 'customer';
   const isAdmin = currentUser?.role === 'admin';
 
-  // For Customers, only show orders belonging to them
+  // For Customers, only show orders belonging to them; For Guests, return empty array
   const userVisibleOrders = useMemo(() => {
-    if (isCustomer && currentUser) {
+    if (!currentUser) return [];
+    if (isCustomer) {
       return orders.filter(o =>
         (o.customer && (o.customer.id === currentUser.id || o.customer.username === currentUser.username)) ||
         (o.cashier && o.cashier.username === currentUser.username)
@@ -538,7 +541,38 @@ export default function OrdersPage() {
 
       {/* ── Orders Table ── */}
       <div className="inventory-table-wrapper orders-table-wrapper">
-        {filteredOrders.length === 0 ? (
+        {!currentUser ? (
+          <div className="empty-table empty-orders">
+            <span style={{ fontSize: 44, marginBottom: 8, display: 'inline-block' }}>🔒</span>
+            <h3>กรุณาเข้าสู่ระบบเพื่อดูประวัติคำสั่งซื้อ</h3>
+            <p>คุณต้องเข้าสู่ระบบหรือสมัครสมาชิกบัญชีผู้ใช้งาน เพื่อตรวจสอบประวัติรายการสั่งซื้อและพิมพ์ใบเสร็จ</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ padding: '10px 22px', borderRadius: 10, fontWeight: 700 }}
+                onClick={() => setAuthModalConfig({ isOpen: true, tab: 'login' })}
+              >
+                🔑 เข้าสู่ระบบ (Sign In)
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                style={{
+                  padding: '10px 22px',
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  background: 'rgba(6, 182, 212, 0.12)',
+                  borderColor: 'rgba(6, 182, 212, 0.35)',
+                  color: '#67e8f9',
+                }}
+                onClick={() => setAuthModalConfig({ isOpen: true, tab: 'register' })}
+              >
+                📝 สมัครสมาชิก (Register)
+              </button>
+            </div>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="empty-table empty-orders">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -598,15 +632,16 @@ export default function OrdersPage() {
                     key={order.id}
                     className="order-table-row"
                     onClick={() => setSelectedOrder(order)}
+                    title="คลิกเพื่อดูรายละเอียดบิล"
                   >
                     {/* Order No */}
                     <td>
-                      <div className="order-no-cell">
-                        <span className="order-no-pill">{orderNo}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span className="order-no-tag font-mono">{orderNo}</span>
                         <button
                           type="button"
-                          className="btn-copy-mini"
-                          onClick={e => handleCopyOrderNo(e, orderNo, order.id)}
+                          className="btn-copy-order"
+                          onClick={(e) => handleCopyOrderNo(e, orderNo, order.id)}
                           title="คัดลอกเลขที่บิล"
                         >
                           {isCopied ? '✓' : '📋'}
@@ -616,23 +651,20 @@ export default function OrdersPage() {
 
                     {/* Date / Time */}
                     <td>
-                      <div className="order-date-cell">
-                        <div className="order-date-text">{formatDateTimeThai(order.createdAt)}</div>
-                        <div className="order-date-relative">{getRelativeTimeThai(order.createdAt)}</div>
-                      </div>
+                      <span className="order-datetime-text">{formatDateTimeThai(order.createdAt)}</span>
                     </td>
 
-                    {/* Cashier / Salesperson */}
+                    {/* Cashier / Customer */}
                     <td>
-                      <div className="order-cashier-badge">
-                        <span className={`cashier-dot ${isOrderAdmin ? 'admin' : 'employee'}`} />
-                        <span className="cashier-name-text">
-                          {order.cashier?.name || 'Admin'}
+                      <div className="order-cashier-cell">
+                        <span className="cashier-avatar">{isOrderAdmin ? '👑' : '👤'}</span>
+                        <span className="cashier-name">
+                          {order.customer ? order.customer.name : (order.cashier?.name || 'Admin')}
                         </span>
                       </div>
                     </td>
 
-                    {/* Order Items summary */}
+                    {/* Items summary */}
                     <td>
                       <div className="order-items-cell">
                         <div className="order-items-badge-row">
@@ -708,6 +740,18 @@ export default function OrdersPage() {
           onDeleteOrder={handleDeleteOrder}
         />
       )}
+
+      {/* ── Login / Register Modal ── */}
+      <LoginModal
+        isOpen={authModalConfig.isOpen}
+        initialTab={authModalConfig.tab}
+        onClose={() => setAuthModalConfig({ isOpen: false, tab: 'login' })}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+          setAuthModalConfig({ isOpen: false, tab: 'login' });
+          showToast(`ยินดีต้อนรับ ${user.name} (${user.role.toUpperCase()})`);
+        }}
+      />
 
       {/* ── Toast Notification ── */}
       {toast && (
