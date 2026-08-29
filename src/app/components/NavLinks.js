@@ -1,15 +1,28 @@
 'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { getCurrentUser } from '../../lib/store';
 
 export default function NavLinks() {
   const pathname = usePathname();
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+    const handleAuth = () => setCurrentUser(getCurrentUser());
+    window.addEventListener('horizonpos_auth_change', handleAuth);
+    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
+  }, []);
+
+  const isAdmin = currentUser?.role === 'admin';
 
   const links = [
     {
       href: '/',
       label: 'POS',
       id: 'nav-pos',
+      adminOnly: false,
       icon: (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2"/>
@@ -18,22 +31,10 @@ export default function NavLinks() {
       ),
     },
     {
-      href: '/dashboard',
-      label: 'Dashboard',
-      id: 'nav-dashboard',
-      icon: (
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      ),
-    },
-    {
       href: '/orders',
       label: 'ประวัติการขาย',
       id: 'nav-orders',
+      adminOnly: false,
       icon: (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -45,9 +46,24 @@ export default function NavLinks() {
       ),
     },
     {
+      href: '/dashboard',
+      label: 'Dashboard',
+      id: 'nav-dashboard',
+      adminOnly: true,
+      icon: (
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      ),
+    },
+    {
       href: '/inventory',
       label: 'Inventory',
       id: 'nav-inventory',
+      adminOnly: true,
       icon: (
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
@@ -64,15 +80,19 @@ export default function NavLinks() {
         const isActive = link.href === '/'
           ? pathname === '/'
           : pathname.startsWith(link.href);
+        const isLocked = link.adminOnly && !isAdmin;
+
         return (
           <Link
             key={link.href}
             href={link.href}
             id={link.id}
-            className={`nav-link${isActive ? ' active' : ''}`}
+            className={`nav-link${isActive ? ' active' : ''}${isLocked ? ' is-restricted' : ''}`}
+            title={isLocked ? 'เฉพาะสิทธิ์ Admin (คลิกเพื่อขอสิทธิ์)' : link.label}
           >
             {link.icon}
             {link.label}
+            {isLocked && <span className="nav-lock-badge" title="เฉพาะสิทธิ์ Admin">🔒</span>}
           </Link>
         );
       })}

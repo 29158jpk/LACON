@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { formatOrderNo } from '../../lib/store';
+import { useState, useEffect } from 'react';
+import { formatOrderNo, getCurrentUser } from '../../lib/store';
 
 function fmt(num) {
   return Number(num || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,8 +28,15 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
   const [copied, setCopied] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [restoreStockOnDelete, setRestoreStockOnDelete] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+  }, []);
 
   if (!order) return null;
+
+  const isAdmin = currentUser?.role === 'admin';
 
   const orderNo = order.orderNo || formatOrderNo(order);
   const totalItemsCount = (order.items || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
@@ -158,7 +165,9 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
                 </div>
                 <div className="receipt-meta-row">
                   <span className="meta-label">พนักงานขาย:</span>
-                  <span className="meta-val">Admin (แคชเชียร์ 01)</span>
+                  <span className="meta-val">
+                    {order.cashier?.name ? `${order.cashier.name} (${order.cashier.role === 'admin' ? 'Admin' : 'พนักงานขาย'})` : 'Admin (ผู้จัดการ)'}
+                  </span>
                 </div>
               </div>
 
@@ -231,23 +240,25 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
                 )}
               </div>
 
-              {/* Profit & Cost breakdown (Visible on screen for manager/staff, styled cleanly) */}
-              <div className="receipt-profit-badge no-print">
-                <div className="profit-badge-col">
-                  <span className="profit-badge-label">ต้นทุนรวม</span>
-                  <span className="profit-badge-val">฿{fmt(order.totalCost)}</span>
+              {/* Profit & Cost breakdown (Visible on screen for Admin only) */}
+              {isAdmin && (
+                <div className="receipt-profit-badge no-print">
+                  <div className="profit-badge-col">
+                    <span className="profit-badge-label">ต้นทุนรวม</span>
+                    <span className="profit-badge-val">฿{fmt(order.totalCost)}</span>
+                  </div>
+                  <div className="profit-badge-divider" />
+                  <div className="profit-badge-col">
+                    <span className="profit-badge-label">กำไรสุทธิ</span>
+                    <span className="profit-badge-val highlight">฿{fmt(order.profit)}</span>
+                  </div>
+                  <div className="profit-badge-divider" />
+                  <div className="profit-badge-col">
+                    <span className="profit-badge-label">อัตรากำไร (Margin)</span>
+                    <span className="profit-badge-val">{profitMargin}%</span>
+                  </div>
                 </div>
-                <div className="profit-badge-divider" />
-                <div className="profit-badge-col">
-                  <span className="profit-badge-label">กำไรสุทธิ</span>
-                  <span className="profit-badge-val highlight">฿{fmt(order.profit)}</span>
-                </div>
-                <div className="profit-badge-divider" />
-                <div className="profit-badge-col">
-                  <span className="profit-badge-label">อัตรากำไร (Margin)</span>
-                  <span className="profit-badge-val">{profitMargin}%</span>
-                </div>
-              </div>
+              )}
 
               <div className="receipt-dashed-line" />
 
@@ -263,12 +274,12 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
             {/* Actions Toolbar - Screen only */}
             <div className="modal-actions-toolbar no-print">
               <div style={{ display: 'flex', gap: 8 }}>
-                {onDeleteOrder && (
+                {onDeleteOrder && isAdmin && (
                   <button
                     type="button"
                     className="btn-danger-ghost"
                     onClick={() => setShowConfirmDelete(true)}
-                    title="ยกเลิกบิลและคืนสต็อกสินค้า"
+                    title="ยกเลิกบิลและคืนสต็อกสินค้า (เฉพาะ Admin)"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>

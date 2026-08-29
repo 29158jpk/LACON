@@ -8,6 +8,8 @@ import {
   exportOrdersCSV,
   exportOrdersJSON,
   formatOrderNo,
+  getCurrentUser,
+  getUsers,
 } from '../../lib/store';
 import OrderReceiptModal from '../components/OrderReceiptModal';
 
@@ -81,6 +83,8 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [toast, setToast] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [staffList, setStaffList] = useState([]);
 
   // Filters & Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +92,7 @@ export default function OrdersPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [paymentFilter, setPaymentFilter] = useState('all'); // all, cash, qr
+  const [cashierFilter, setCashierFilter] = useState('all'); // all or userId
   const [sortBy, setSortBy] = useState('newest'); // newest, oldest, highest, lowest
   const [copiedId, setCopiedId] = useState(null);
 
@@ -95,10 +100,12 @@ export default function OrdersPage() {
     setToast({ message, type, key: Date.now() });
   }, []);
 
-  const loadOrders = useCallback(() => {
+  const loadData = useCallback(() => {
     try {
       const data = getOrders();
       setOrders(data);
+      setCurrentUser(getCurrentUser());
+      setStaffList(getUsers());
     } catch (err) {
       console.error('Failed to load orders:', err);
     } finally {
@@ -107,8 +114,16 @@ export default function OrdersPage() {
   }, []);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    loadData();
+    const handleAuth = () => loadData();
+    const handleUsers = () => setStaffList(getUsers());
+    window.addEventListener('horizonpos_auth_change', handleAuth);
+    window.addEventListener('horizonpos_users_change', handleUsers);
+    return () => {
+      window.removeEventListener('horizonpos_auth_change', handleAuth);
+      window.removeEventListener('horizonpos_users_change', handleUsers);
+    };
+  }, [loadData]);
 
   // Handle Order Deletion / Refund
   const handleDeleteOrder = (id, restoreStock) => {
@@ -198,6 +213,15 @@ export default function OrdersPage() {
         return false;
       }
 
+      // 2.1 Salesperson / Cashier Filter
+      if (cashierFilter !== 'all') {
+        const matchesCashier =
+          order.cashier?.id === cashierFilter ||
+          order.cashier?.username === cashierFilter ||
+          order.cashier?.name === cashierFilter;
+        if (!matchesCashier) return false;
+      }
+
       // 3. Date Filter
       if (dateFilter === 'today') {
         if (orderDateStr !== todayStr) return false;
@@ -223,7 +247,9 @@ export default function OrdersPage() {
       if (sortBy === 'lowest') return a.total - b.total;
       return 0;
     });
-  }, [orders, searchQuery, paymentFilter, dateFilter, customStartDate, customEndDate, sortBy]);
+  }, [orders, searchQuery, paymentFilter, cashierFilter, dateFilter, customStartDate, customEndDate, sortBy]);
+
+  const isAdmin = currentUser?.role === 'admin';
 
   // Overall Statistics from Filtered Data
   const stats = useMemo(() => {
@@ -327,8 +353,8 @@ export default function OrdersPage() {
         />
         <StatCard
           label="กำไรสุทธิรวม"
-          value={`฿${fmt(stats.totalProfit)}`}
-          sub={`Margin ${stats.profitMargin}% • ทุน ฿${fmt(stats.totalCost)}`}
+          value={isAdmin ? `฿${fmt(stats.totalProfit)}` : '🔒 เฉพาะ Admin'}
+          sub={isAdmin ? `Margin ${stats.profitMargin}% • ทุน ฿${fmt(stats.totalCost)}` : 'พนักงานขายไม่สามารถดูต้นทุน/กำไร'}
           colorClass="green"
           icon={
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -362,7 +388,7 @@ export default function OrdersPage() {
               id="orders-search-input"
               type="text"
               className="search-input"
-              placeholder="ค้นหาเลขที่บิล, ชื่อสินค้า, SKU, Barcode..."
+              placeholder="ค้นหาเลขที่บิล, ชื่อสินค้า, SKU, Barcode, พนักงานขาย..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -399,7 +425,7 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        {/* Secondary Filter Row: Custom Dates, Payment Method, Sorting */}
+        {/* Secondary Filter Row: Custom Dates, Cashier, Payment Method, Sorting */}
         <div className="orders-filter-bottom">
           {dateFilter === 'custom' && (
             <div className="custom-date-range-inputs">
@@ -436,6 +462,24 @@ export default function OrdersPage() {
           )}
 
           <div className="filter-selects-wrap">
+            {/* Salesperson Filter */}
+            <div className="filter-select-group">
+              <label>พนักงานขาย:</label>
+              <select
+                id="cashier-filter"
+                className="form-select filter-select"
+                value={cashierFilter}
+                onChange={e => setCashierFilter(e.target.value)}
+              >
+                <option value="all">พนักงานทุกคน (All)</option>
+                {staffList.map(u => (
+                  <option key={u.id} value={u.id}>
+                    {u.role === 'admin' ? '👑' : '👤'} {u.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Payment Filter */}
             <div className="filter-select-group">
               <label>วิธีชำระเงิน:</label>
@@ -497,6 +541,7 @@ export default function OrdersPage() {
                   setSearchQuery('');
                   setDateFilter('all');
                   setPaymentFilter('all');
+                  setCashierFilter('all');
                 }}
               >
                 ล้างตัวกรองทั้งหมด
@@ -507,13 +552,14 @@ export default function OrdersPage() {
           <table className="inventory-table orders-table">
             <thead>
               <tr>
-                <th style={{ width: '18%' }}>เลขที่บิล</th>
-                <th style={{ width: '18%' }}>วันที่ / เวลา</th>
-                <th style={{ width: '26%' }}>รายการสินค้า</th>
-                <th style={{ width: '12%' }}>วิธีชำระเงิน</th>
-                <th style={{ width: '12%', textAlign: 'right' }}>กำไร</th>
-                <th style={{ width: '14%', textAlign: 'right' }}>ยอดรวมสุทธิ</th>
-                <th style={{ width: '10%', textAlign: 'center' }}>จัดการ</th>
+                <th style={{ width: '16%' }}>เลขที่บิล</th>
+                <th style={{ width: '15%' }}>วันที่ / เวลา</th>
+                <th style={{ width: '14%' }}>พนักงานขาย</th>
+                <th style={{ width: isAdmin ? '21%' : '30%' }}>รายการสินค้า</th>
+                <th style={{ width: '11%' }}>วิธีชำระเงิน</th>
+                {isAdmin && <th style={{ width: '11%', textAlign: 'right' }}>กำไร</th>}
+                <th style={{ width: '12%', textAlign: 'right' }}>ยอดรวมสุทธิ</th>
+                <th style={{ width: '9%', textAlign: 'center' }}>จัดการ</th>
               </tr>
             </thead>
             <tbody>
@@ -521,6 +567,7 @@ export default function OrdersPage() {
                 const orderNo = order.orderNo || formatOrderNo(order);
                 const itemsCount = (order.items || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
                 const isCopied = copiedId === order.id;
+                const isOrderAdmin = order.cashier?.role === 'admin';
 
                 return (
                   <tr
@@ -548,6 +595,16 @@ export default function OrdersPage() {
                       <div className="order-date-cell">
                         <div className="order-date-text">{formatDateTimeThai(order.createdAt)}</div>
                         <div className="order-date-relative">{getRelativeTimeThai(order.createdAt)}</div>
+                      </div>
+                    </td>
+
+                    {/* Cashier / Salesperson */}
+                    <td>
+                      <div className="order-cashier-badge">
+                        <span className={`cashier-dot ${isOrderAdmin ? 'admin' : 'employee'}`} />
+                        <span className="cashier-name-text">
+                          {order.cashier?.name || 'Admin'}
+                        </span>
                       </div>
                     </td>
 
@@ -586,10 +643,12 @@ export default function OrdersPage() {
                       )}
                     </td>
 
-                    {/* Profit */}
-                    <td style={{ textAlign: 'right' }}>
-                      <span className="order-profit-text">+฿{fmt(order.profit)}</span>
-                    </td>
+                    {/* Profit (Admin Only) */}
+                    {isAdmin && (
+                      <td style={{ textAlign: 'right' }}>
+                        <span className="order-profit-text">+฿{fmt(order.profit)}</span>
+                      </td>
+                    )}
 
                     {/* Total Amount */}
                     <td style={{ textAlign: 'right' }}>

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getDashboardStats } from '../../lib/store';
+import { getDashboardStats, getCurrentUser } from '../../lib/store';
+import LoginModal from '../components/LoginModal';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function fmt(num) {
@@ -50,16 +51,69 @@ function BarChart({ data, maxVal, barClass, labelKey = 'label', valueKey = 'reve
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
-  useEffect(() => {
+  const loadData = () => {
+    setCurrentUser(getCurrentUser());
     setStats(getDashboardStats());
     setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+    const handleAuth = () => {
+      loadData();
+    };
+    window.addEventListener('horizonpos_auth_change', handleAuth);
+    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
   }, []);
 
   if (loading) {
     return (
       <div className="dashboard-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ color: 'var(--text-muted)' }}>กำลังโหลด...</p>
+      </div>
+    );
+  }
+
+  // Role Access Restriction for Employee
+  if (currentUser?.role !== 'admin') {
+    return (
+      <div className="dashboard-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div className="access-denied-card">
+          <div className="access-denied-icon">🔒</div>
+          <h2>หน้านี้จำกัดเฉพาะผู้ดูแลระบบ (Admin)</h2>
+          <p>
+            รายงานสรุปยอดขาย ต้นทุน และกำไรสุทธิ (Dashboard & Analytics) สงวนสิทธิ์สำหรับระดับผู้จัดการร้านเท่านั้น
+          </p>
+          <div className="access-current-user">
+            ผู้ใช้งานปัจจุบัน: <strong>{currentUser?.name || 'พนักงาน'}</strong> (สิทธิ์: Employee)
+          </div>
+          <div className="access-denied-actions">
+            <Link href="/" className="btn-secondary" style={{ textDecoration: 'none' }}>
+              ← กลับไปหน้าขาย (POS)
+            </Link>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowAdminLogin(true)}
+            >
+              🔑 ปลดล็อคด้วย Admin PIN
+            </button>
+          </div>
+        </div>
+
+        <LoginModal
+          isOpen={showAdminLogin}
+          initialRoleNeeded="admin"
+          title="ยืนยันสิทธิ์ Admin เพื่อดู Dashboard"
+          onClose={() => setShowAdminLogin(false)}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setShowAdminLogin(false);
+          }}
+        />
       </div>
     );
   }

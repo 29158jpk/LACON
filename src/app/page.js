@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { getProducts, addOrder, findProductByBarcodeOrSku } from '../lib/store';
+import { getProducts, addOrder, findProductByBarcodeOrSku, getCurrentUser } from '../lib/store';
 import { playScanSound } from '../lib/barcode';
 import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
@@ -191,12 +191,20 @@ export default function POS() {
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [viewReceiptModal, setViewReceiptModal] = useState(null);
   const [toast, setToast] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
 
   const searchInputRef = useRef(null);
 
-  // Load products from localStorage
+  // Load products and current user from localStorage
   useEffect(() => {
     setProducts(getProducts());
+    setCurrentUser(getCurrentUser());
+    const handleAuth = () => {
+      setCurrentUser(getCurrentUser());
+      setProducts(getProducts());
+    };
+    window.addEventListener('horizonpos_auth_change', handleAuth);
+    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
   }, []);
 
   const categories = ['All', ...new Set(products.map(p => p.category))];
@@ -469,9 +477,15 @@ export default function POS() {
         {/* ── Cart Panel ── */}
         <div className="cart-panel">
           <div className="cart-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <h3>รายการสั่ง</h3>
-              {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3>รายการสั่ง</h3>
+                {cartCount > 0 && <span className="cart-count">{cartCount}</span>}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--text-muted)' }}>
+                <span>{currentUser?.role === 'admin' ? '👑' : '👤'}</span>
+                <span>ผู้ขาย: <strong style={{ color: 'var(--text-main)' }}>{currentUser?.name || 'Admin'}</strong></span>
+              </div>
             </div>
             {cart.length > 0 && (
               <button

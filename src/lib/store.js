@@ -4,12 +4,47 @@
  * All data persisted in browser localStorage with SKU & Barcode support.
  */
 
-import mockProducts from '../data/products.json';
-import { generateSKU, generateBarcode } from './barcode';
-import { cleanImageUrl } from './imageHelper';
+import mockProducts from '../data/products.json' with { type: 'json' };
+import { generateSKU, generateBarcode } from './barcode.js';
+import { cleanImageUrl } from './imageHelper.js';
 
 const PRODUCTS_KEY = 'horizonpos_products';
 const ORDERS_KEY = 'horizonpos_orders';
+const USERS_KEY = 'horizonpos_users';
+const CURRENT_USER_KEY = 'horizonpos_current_user';
+
+export const DEFAULT_USERS = [
+  {
+    id: 'u-admin',
+    name: 'ผู้จัดการ (Admin)',
+    username: 'admin',
+    pin: '1111',
+    password: 'admin',
+    role: 'admin',
+    avatarColor: '#3b82f6',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'u-cashier1',
+    name: 'สมชาย ใจดี',
+    username: 'cashier1',
+    pin: '1234',
+    password: 'cashier1',
+    role: 'employee',
+    avatarColor: '#10b981',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'u-cashier2',
+    name: 'สมหญิง รักบริการ',
+    username: 'cashier2',
+    pin: '5678',
+    password: 'cashier2',
+    role: 'employee',
+    avatarColor: '#8b5cf6',
+    createdAt: '2026-01-01T00:00:00.000Z',
+  },
+];
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -206,6 +241,138 @@ export function deductStock(items) {
 }
 
 // ─────────────────────────────────────────────
+// Users & Authentication
+// ─────────────────────────────────────────────
+
+export function getUsers() {
+  const stored = readLS(USERS_KEY);
+  if (stored && Array.isArray(stored) && stored.length > 0) {
+    return stored;
+  }
+  writeLS(USERS_KEY, DEFAULT_USERS);
+  return DEFAULT_USERS;
+}
+
+export function saveUsers(users) {
+  writeLS(USERS_KEY, users);
+  if (isClient()) {
+    window.dispatchEvent(new CustomEvent('horizonpos_users_change', { detail: users }));
+  }
+}
+
+export function addUser(userData) {
+  const users = getUsers();
+  const newUser = {
+    ...userData,
+    id: `u-${Date.now()}`,
+    name: (userData.name || '').trim(),
+    username: (userData.username || '').trim().toLowerCase() || `user${Date.now().toString().slice(-4)}`,
+    pin: (userData.pin || '0000').trim(),
+    password: userData.password || '123456',
+    role: userData.role === 'admin' ? 'admin' : 'employee',
+    avatarColor: userData.avatarColor || (userData.role === 'admin' ? '#3b82f6' : '#10b981'),
+    createdAt: new Date().toISOString(),
+  };
+  const updated = [...users, newUser];
+  saveUsers(updated);
+  return newUser;
+}
+
+export function updateUser(id, updates) {
+  const users = getUsers();
+  const updated = users.map(u => (u.id === id ? { ...u, ...updates } : u));
+  saveUsers(updated);
+
+  const current = getCurrentUser();
+  if (current && current.id === id) {
+    setCurrentUser({ ...current, ...updates });
+  }
+  return updated;
+}
+
+export function deleteUser(id) {
+  const users = getUsers();
+  const userToDelete = users.find(u => u.id === id);
+  if (userToDelete?.role === 'admin') {
+    const adminCount = users.filter(u => u.role === 'admin').length;
+    if (adminCount <= 1) {
+      throw new Error('ไม่สามารถลบ Admin คนสุดท้ายของระบบได้');
+    }
+  }
+  const updated = users.filter(u => u.id !== id);
+  saveUsers(updated);
+  return updated;
+}
+
+export function getCurrentUser() {
+  const stored = readLS(CURRENT_USER_KEY);
+  if (stored && stored.id) {
+    return stored;
+  }
+  const users = getUsers();
+  const defaultUser = users[0] || DEFAULT_USERS[0];
+  writeLS(CURRENT_USER_KEY, defaultUser);
+  return defaultUser;
+}
+
+export function setCurrentUser(user) {
+  writeLS(CURRENT_USER_KEY, user);
+  if (isClient()) {
+    window.dispatchEvent(new CustomEvent('horizonpos_auth_change', { detail: user }));
+  }
+}
+
+export function loginWithPin(pin) {
+  const cleanPin = (pin || '').trim();
+  if (!cleanPin) throw new Error('กรุณาระบุ PIN');
+  const users = getUsers();
+  const matched = users.find(u => u.pin === cleanPin);
+  if (!matched) {
+    throw new Error('รหัส PIN ไม่ถูกต้อง');
+  }
+  setCurrentUser(matched);
+  return matched;
+}
+
+export function loginWithPassword(username, password) {
+  const cleanUser = (username || '').trim().toLowerCase();
+  const cleanPass = (password || '').trim();
+  if (!cleanUser) throw new Error('กรุณากรอก Username');
+  if (!cleanPass) throw new Error('กรุณากรอกรหัสผ่าน');
+
+  const users = getUsers();
+  const matched = users.find(
+    u => u.username.toLowerCase() === cleanUser && (u.password === cleanPass || u.pin === cleanPass)
+  );
+  if (!matched) {
+    throw new Error('Username หรือรหัสผ่านไม่ถูกต้อง');
+  }
+  setCurrentUser(matched);
+  return matched;
+}
+
+export function switchUserById(id) {
+  const users = getUsers();
+  const matched = users.find(u => u.id === id);
+  if (!matched) throw new Error('ไม่พบข้อมูลผู้ใช้');
+  setCurrentUser(matched);
+  return matched;
+}
+
+export function verifyAdminPin(pin) {
+  const cleanPin = (pin || '').trim();
+  const users = getUsers();
+  return users.some(u => u.role === 'admin' && u.pin === cleanPin);
+}
+
+export function logout() {
+  const users = getUsers();
+  const firstEmployee = users.find(u => u.role === 'employee') || users[0];
+  setCurrentUser(firstEmployee);
+  return firstEmployee;
+}
+
+// ─────────────────────────────────────────────
 // Orders
 // ─────────────────────────────────────────────
 
@@ -222,6 +389,7 @@ export function getOrders() {
   return orders.map(o => ({
     ...o,
     orderNo: formatOrderNo(o),
+    cashier: o.cashier || { id: 'u-admin', name: 'ผู้จัดการ (Admin)', username: 'admin', role: 'admin' },
     cashReceived: o.cashReceived !== undefined ? o.cashReceived : (o.paymentMethod === 'cash' ? o.total : null),
     change: o.change !== undefined ? o.change : 0,
   }));
@@ -252,12 +420,25 @@ export function restoreStock(items) {
  * Create a new order, deduct stock, and persist everything.
  * @param {Array} items  - cart items [{id, name, price, cost, qty, sku, barcode}]
  * @param {'cash'|'qr'} paymentMethod
- * @param {object} [extra] - { cashReceived, change, notes }
+ * @param {object} [extra] - { cashReceived, change, notes, cashier }
  * @returns {object} The saved order
  */
 export function addOrder(items, paymentMethod, extra = {}) {
   // Deduct stock first (throws on insufficient stock)
   deductStock(items);
+
+  const currentUser = getCurrentUser();
+  const cashier = extra.cashier || (currentUser ? {
+    id: currentUser.id,
+    name: currentUser.name,
+    username: currentUser.username,
+    role: currentUser.role,
+  } : {
+    id: 'u-admin',
+    name: 'ผู้จัดการ (Admin)',
+    username: 'admin',
+    role: 'admin',
+  });
 
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
@@ -271,6 +452,7 @@ export function addOrder(items, paymentMethod, extra = {}) {
   const order = {
     id: Date.now().toString(),
     orderNo,
+    cashier,
     items: items.map(i => ({
       id: i.id,
       name: i.name,
@@ -326,14 +508,16 @@ export function exportOrdersCSV() {
   const orders = getOrders();
   if (orders.length === 0) throw new Error('ไม่มีข้อมูลประวัติการขายให้ส่งออก');
 
-  const headers = ['เลขที่บิล', 'วันที่/เวลา', 'วิธีชำระเงิน', 'จำนวนรายการ', 'ยอดรวม (฿)', 'ต้นทุนรวม (฿)', 'กำไรสุทธิ (฿)', 'รายการสินค้า'];
+  const headers = ['เลขที่บิล', 'วันที่/เวลา', 'พนักงานขาย (Cashier)', 'วิธีชำระเงิน', 'จำนวนรายการ', 'ยอดรวม (฿)', 'ต้นทุนรวม (฿)', 'กำไรสุทธิ (฿)', 'รายการสินค้า'];
   const rows = orders.map(o => {
     const itemSummary = o.items.map(i => `${i.name} (x${i.qty})`).join('; ');
     const dateFormatted = new Date(o.createdAt).toLocaleString('th-TH');
     const payment = o.paymentMethod === 'cash' ? 'เงินสด' : 'QR Code';
+    const cashierName = o.cashier?.name || 'Admin';
     return [
       `"${o.orderNo || o.id}"`,
       `"${dateFormatted}"`,
+      `"${cashierName.replace(/"/g, '""')}"`,
       `"${payment}"`,
       o.items.reduce((s, i) => s + i.qty, 0),
       o.total.toFixed(2),

@@ -1,5 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import NavLinks from "./components/NavLinks";
+import UserNavWidget from "./components/UserNavWidget";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,8 +32,11 @@ export default function RootLayout({ children }) {
             Horizon<span>POS</span>
           </div>
 
-          {/* Client-side nav with active detection */}
+          {/* Client-side nav with active detection & role badges */}
           <NavLinks />
+
+          {/* User Profile & Role Status */}
+          <UserNavWidget />
         </nav>
         <main className="app-main">{children}</main>
       </body>

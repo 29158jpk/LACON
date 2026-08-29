@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import {
   getProducts,
   addProduct,
@@ -9,12 +10,14 @@ import {
   exportProductsJSON,
   importProductsJSON,
   resetToDefaultProducts,
+  getCurrentUser,
 } from '../../lib/store';
 import { generateSKU, generateBarcode } from '../../lib/barcode';
 import { cleanImageUrl, compressImageFile, getCategoryPlaceholder } from '../../lib/imageHelper';
 import ProductImage from '../components/ProductImage';
 import BarcodeView from '../components/BarcodeView';
 import BarcodePrintModal from '../components/BarcodePrintModal';
+import LoginModal from '../components/LoginModal';
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 function Toast({ message, type, onDone }) {
@@ -377,9 +380,18 @@ export default function Inventory() {
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState(null); // null | {type: 'add'|'edit'|'delete'|'print', product?}
   const [toast, setToast] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   useEffect(() => {
     setProducts(getProducts());
+    setCurrentUser(getCurrentUser());
+    const handleAuth = () => {
+      setCurrentUser(getCurrentUser());
+      setProducts(getProducts());
+    };
+    window.addEventListener('horizonpos_auth_change', handleAuth);
+    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
   }, []);
 
   const showToast = useCallback((message, type = 'success') => {
@@ -400,6 +412,47 @@ export default function Inventory() {
       (p.barcode && p.barcode.toLowerCase().includes(s))
     );
   });
+
+  // Role Access Restriction for Employee
+  if (currentUser && currentUser.role !== 'admin') {
+    return (
+      <div className="inventory-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh' }}>
+        <div className="access-denied-card">
+          <div className="access-denied-icon">🔒</div>
+          <h2>หน้านี้จำกัดเฉพาะผู้ดูแลระบบ (Admin)</h2>
+          <p>
+            การจัดการรายการสินค้า, เพิ่ม/แก้ไข/ลบสินค้า, นำเข้า/ส่งออก, และปรับสต็อกสินค้า สงวนสิทธิ์สำหรับระดับผู้จัดการร้านเท่านั้น
+          </p>
+          <div className="access-current-user">
+            ผู้ใช้งานปัจจุบัน: <strong>{currentUser?.name || 'พนักงาน'}</strong> (สิทธิ์: Employee)
+          </div>
+          <div className="access-denied-actions">
+            <Link href="/" className="btn-secondary" style={{ textDecoration: 'none' }}>
+              ← กลับไปหน้าขาย (POS)
+            </Link>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => setShowAdminLogin(true)}
+            >
+              🔑 ปลดล็อคด้วย Admin PIN
+            </button>
+          </div>
+        </div>
+
+        <LoginModal
+          isOpen={showAdminLogin}
+          initialRoleNeeded="admin"
+          title="ยืนยันสิทธิ์ Admin เพื่อจัดการคลังสินค้า"
+          onClose={() => setShowAdminLogin(false)}
+          onSuccess={(user) => {
+            setCurrentUser(user);
+            setShowAdminLogin(false);
+          }}
+        />
+      </div>
+    );
+  }
 
   // ── CRUD handlers ──────────────────────────────────────────────────────────
   const handleSave = (formData) => {
