@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import NavLinks from "./components/NavLinks";
 import UserNavWidget from "./components/UserNavWidget";
+import ThemeManager from "./components/ThemeManager";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,7 +21,14 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="th" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="th" className={`${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var c=JSON.parse(localStorage.getItem('horizonpos_theme_config')||'{}');if(c.preset)document.documentElement.setAttribute('data-theme',c.preset);}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body>
         <nav className="top-nav">
           {/* Brand */}
@@ -39,6 +47,9 @@ export default function RootLayout({ children }) {
           <UserNavWidget />
         </nav>
         <main className="app-main">{children}</main>
+
+        {/* Global Theme & Background Manager */}
+        <ThemeManager />
       </body>
     </html>
   );
