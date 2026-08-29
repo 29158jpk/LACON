@@ -7,6 +7,7 @@ import { playScanSound } from '../lib/barcode';
 import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
 import OrderReceiptModal from './components/OrderReceiptModal';
+import PaymentSuccessModal from './components/PaymentSuccessModal';
 import { PROMPTPAY_QR_BASE64 } from '../lib/promptpayQR';
 
 // ── PromptPay QR Component ───────────────────────────────────────────────────
@@ -200,6 +201,7 @@ export default function POS() {
   const [showPayment, setShowPayment] = useState(false);
   const [showCameraScanner, setShowCameraScanner] = useState(false);
   const [viewReceiptModal, setViewReceiptModal] = useState(null);
+  const [paymentSuccessOrder, setPaymentSuccessOrder] = useState(null);
   const [toast, setToast] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -367,14 +369,10 @@ export default function POS() {
     setCart([]);
     // Reload products to reflect deducted stock
     setProducts(getProducts());
-    const msg = method === 'cash'
-      ? `ชำระเสร็จสิ้น! เงินทอน ฿${change.toLocaleString('th-TH', { minimumFractionDigits: 2 })}`
-      : 'ชำระด้วย QR เสร็จสิ้น!';
-    showToast(msg, 'success');
     if (savedOrder) {
-      setViewReceiptModal(savedOrder);
+      setPaymentSuccessOrder(savedOrder);
     }
-  }, [showToast]);
+  }, []);
 
   const getStockStatus = (stock) => {
     if (stock <= 0) return 'out';
@@ -594,6 +592,22 @@ export default function POS() {
           onScan={(code) => {
             handleBarcodeScan(code);
             setShowCameraScanner(false);
+          }}
+        />
+      )}
+
+      {/* ── Payment Success Celebration Modal ── */}
+      {paymentSuccessOrder && (
+        <PaymentSuccessModal
+          isOpen={!!paymentSuccessOrder}
+          order={paymentSuccessOrder}
+          onViewReceipt={() => {
+            const ord = paymentSuccessOrder;
+            setPaymentSuccessOrder(null);
+            setViewReceiptModal(ord);
+          }}
+          onNewSale={() => {
+            setPaymentSuccessOrder(null);
           }}
         />
       )}
