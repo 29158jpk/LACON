@@ -19,6 +19,11 @@ import BarcodeView from '../components/BarcodeView';
 import BarcodePrintModal from '../components/BarcodePrintModal';
 import LoginModal from '../components/LoginModal';
 
+// ── Helpers ────────────────────────────────────────────────────────────────────
+function fmt(num) {
+  return Number(num || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ── Toast ──────────────────────────────────────────────────────────────────────
 function Toast({ message, type, onDone }) {
   useEffect(() => {
@@ -383,6 +388,7 @@ export default function Inventory() {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const importFileInputRef = useRef(null);
 
   useEffect(() => {
     setProducts(getProducts());
@@ -402,16 +408,19 @@ export default function Inventory() {
 
   const reload = () => setProducts(getProducts());
 
-  const categories = [...new Set(products.map(p => p.category))];
+  const categories = [...new Set(products.map(p => p?.category).filter(Boolean))];
+  if (categories.length === 0) categories.push('Computer Parts');
 
   // Enhanced search: checks Name, Category, SKU, and Barcode
   const filtered = products.filter(p => {
-    const s = search.toLowerCase().trim();
+    if (!p) return false;
+    const s = (search || '').toLowerCase().trim();
+    if (!s) return true;
     return (
-      p.name.toLowerCase().includes(s) ||
-      p.category.toLowerCase().includes(s) ||
-      (p.sku && p.sku.toLowerCase().includes(s)) ||
-      (p.barcode && p.barcode.toLowerCase().includes(s))
+      (p.name && String(p.name).toLowerCase().includes(s)) ||
+      (p.category && String(p.category).toLowerCase().includes(s)) ||
+      (p.sku && String(p.sku).toLowerCase().includes(s)) ||
+      (p.barcode && String(p.barcode).toLowerCase().includes(s))
     );
   });
 
@@ -500,17 +509,15 @@ export default function Inventory() {
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const totalProducts = products.length;
-  const lowStockCount = products.filter(p => p.stock > 0 && p.stock <= 5).length;
-  const outOfStockCount = products.filter(p => p.stock <= 0).length;
-  const totalStockValue = products.reduce((s, p) => s + (p.cost || 0) * p.stock, 0);
+  const lowStockCount = products.filter(p => Number(p?.stock) > 0 && Number(p?.stock) <= 5).length;
+  const outOfStockCount = products.filter(p => Number(p?.stock) <= 0).length;
+  const totalStockValue = products.reduce((s, p) => s + (Number(p?.cost) || 0) * (Number(p?.stock) || 0), 0);
 
   const getStockStatus = (stock) => {
     if (stock <= 0) return 'out';
     if (stock <= 5) return 'low';
     return null;
   };
-
-  const importFileInputRef = useRef(null);
 
   const handleExport = () => {
     try {
@@ -661,7 +668,7 @@ export default function Inventory() {
             <div className="inv-stat-dot" style={{ background: 'var(--success-color)' }} />
             <span className="inv-stat-label">มูลค่าสต็อก (ทุน)</span>
             <span className="inv-stat-value">
-              ฿{totalStockValue.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+              ฿{fmt(totalStockValue)}
             </span>
           </div>
         </div>
@@ -692,7 +699,7 @@ export default function Inventory() {
               ) : (
                 filtered.map(product => {
                   const status = getStockStatus(product.stock);
-                  const profitPerUnit = product.price - (product.cost || 0);
+                  const profitPerUnit = (Number(product.price) || 0) - (Number(product.cost) || 0);
                   return (
                     <tr key={product.id} id={`inv-row-${product.id}`}>
                       <td>
@@ -735,13 +742,13 @@ export default function Inventory() {
                         <span className="product-category-tag">{product.category}</span>
                       </td>
                       <td style={{ fontWeight: 600, color: 'var(--primary-accent)' }}>
-                        ฿{product.price.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        ฿{fmt(product.price)}
                       </td>
                       <td style={{ color: 'var(--text-muted)' }}>
-                        ฿{(product.cost || 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        ฿{fmt(product.cost)}
                       </td>
                       <td style={{ color: profitPerUnit >= 0 ? 'var(--success-color)' : 'var(--danger-color)', fontWeight: 600 }}>
-                        ฿{profitPerUnit.toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+                        ฿{fmt(profitPerUnit)}
                       </td>
                       <td>
                         <div className="stock-cell">
