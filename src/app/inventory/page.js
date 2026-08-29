@@ -4,13 +4,19 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   getProducts,
+  getProductsAsync,
   addProduct,
+  addProductAsync,
   updateProduct,
+  updateProductAsync,
   deleteProduct,
+  deleteProductAsync,
+  adjustStockAsync,
   exportProductsJSON,
   importProductsJSON,
   resetToDefaultProducts,
   getCurrentUser,
+  subscribeToProducts,
 } from '../../lib/store';
 import { generateSKU, generateBarcode } from '../../lib/barcode';
 import { cleanImageUrl, compressImageFile, getCategoryPlaceholder } from '../../lib/imageHelper';
@@ -391,22 +397,38 @@ export default function Inventory() {
   const importFileInputRef = useRef(null);
 
   useEffect(() => {
+    // Render local cache immediately, then load live from Supabase
     setProducts(getProducts());
     setCurrentUser(getCurrentUser());
     setLoading(false);
+
+    getProductsAsync().then(p => { if (p) setProducts(p); });
+
     const handleAuth = () => {
       setCurrentUser(getCurrentUser());
-      setProducts(getProducts());
+      getProductsAsync().then(p => { if (p) setProducts(p); });
     };
+    const handleProductsChange = () => {
+      getProductsAsync().then(p => { if (p) setProducts(p); });
+    };
+    const unsubscribeRealtime = subscribeToProducts(() => {
+      getProductsAsync().then(p => { if (p) setProducts(p); });
+    });
+
     window.addEventListener('horizonpos_auth_change', handleAuth);
-    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
+    window.addEventListener('horizonpos_products_change', handleProductsChange);
+    return () => {
+      window.removeEventListener('horizonpos_auth_change', handleAuth);
+      window.removeEventListener('horizonpos_products_change', handleProductsChange);
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type, key: Date.now() });
   }, []);
 
-  const reload = () => setProducts(getProducts());
+  const reload = () => getProductsAsync().then(p => { if (p) setProducts(p); });
 
   const categories = [...new Set(products.map(p => p?.category).filter(Boolean))];
   if (categories.length === 0) categories.push('Computer Parts');
@@ -474,37 +496,49 @@ export default function Inventory() {
   }
 
   // ── CRUD handlers ──────────────────────────────────────────────────────────
-  const handleSave = (formData) => {
-    if (modal?.type === 'edit' && modal.product) {
-      updateProduct(modal.product.id, formData);
-      showToast('แก้ไขสินค้าเรียบร้อย');
-    } else {
-      addProduct(formData);
-      showToast('เพิ่มสินค้าใหม่เรียบร้อย');
-    }
-    reload();
-    setModal(null);
-  };
-
-  const handleDelete = () => {
-    if (modal?.product) {
-      deleteProduct(modal.product.id);
-      showToast(`ลบ "${modal.product.name}" เรียบร้อย`, 'info');
+  const handleSave = async (formData) => {
+    try {
+      if (modal?.type === 'edit' && modal.product) {
+        await updateProductAsync(modal.product.id, formData);
+        showToast('แก้ไขสินค้าเรียบร้อย');
+      } else {
+        await addProductAsync(formData);
+        showToast('เพิ่มสินค้าใหม่เรียบร้อย');
+      }
       reload();
       setModal(null);
+    } catch (err) {
+      showToast(err.message || 'เกิดข้อผิดพลาด', 'error');
     }
   };
 
-  const handleStockAdjust = (id, delta) => {
+  const handleDelete = async () => {
+    if (modal?.product) {
+      try {
+        await deleteProductAsync(modal.product.id);
+        showToast(`ลบ "${modal.product.name}" เรียบร้อย`, 'info');
+        reload();
+        setModal(null);
+      } catch (err) {
+        showToast(err.message || 'เกิดข้อผิดพลาดในการลบสินค้า', 'error');
+      }
+    }
+  };
+
+  const handleStockAdjust = async (id, delta) => {
     const product = products.find(p => p.id === id);
     if (!product) return;
-    const newStock = product.stock + delta;
+    const newStock = (Number(product.stock) || 0) + delta;
     if (newStock < 0) {
       showToast('Stock ไม่สามารถติดลบได้', 'error');
       return;
     }
-    updateProduct(id, { stock: newStock });
-    reload();
+    try {
+      await adjustStockAsync(id, delta, 'manual_adjustment');
+      reload();
+    } catch (err) {
+      showToast(err.message || 'เกิดข้อผิดพลาดในการปรับ Stock', 'error');
+    }
   };
 
   // ── Stats ──────────────────────────────────────────────────────────────────
@@ -549,11 +583,15 @@ export default function Inventory() {
     reader.readAsText(file);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (window.confirm('คุณต้องการคืนค่าสินค้าทั้งหมดกลับเป็นค่าเริ่มต้นหรือไม่?')) {
-      resetToDefaultProducts();
-      reload();
-      showToast('คืนค่าสินค้าเริ่มต้นเรียบร้อย', 'info');
+      try {
+        await resetToDefaultProducts();
+        reload();
+        showToast('คืนค่าสินค้าเริ่มต้นเรียบร้อย', 'info');
+      } catch (err) {
+        showToast(err.message || 'เกิดข้อผิดพลาดในการคืนค่า', 'error');
+      }
     }
   };
 

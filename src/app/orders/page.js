@@ -4,12 +4,15 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   getOrders,
+  getOrdersAsync,
   deleteOrder,
+  deleteOrderAsync,
   exportOrdersCSV,
   exportOrdersJSON,
   formatOrderNo,
   getCurrentUser,
   getUsers,
+  subscribeToOrders,
 } from '../../lib/store';
 import OrderReceiptModal from '../components/OrderReceiptModal';
 import LoginModal from '../components/LoginModal';
@@ -38,20 +41,17 @@ function formatDateTimeThai(dateStr) {
 function getRelativeTimeThai(dateStr) {
   if (!dateStr) return '';
   try {
-    const now = new Date();
-    const past = new Date(dateStr);
-    const diffMs = now - past;
-    const diffSec = Math.floor(diffMs / 1000);
-    const diffMin = Math.floor(diffSec / 60);
-    const diffHour = Math.floor(diffMin / 60);
-    const diffDay = Math.floor(diffHour / 24);
-
-    if (diffSec < 60) return 'เมื่อสักครู่';
-    if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
-    if (diffHour < 24) return `${diffHour} ชั่วโมงที่แล้ว`;
-    if (diffDay === 1) return 'เมื่อวานนี้';
-    if (diffDay < 30) return `${diffDay} วันที่แล้ว`;
-    return '';
+    const d = new Date(dateStr);
+    const diffMs = Date.now() - d.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return 'เมื่อสักครู่';
+    if (diffMins < 60) return `${diffMins} นาทีที่แล้ว`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} ชั่วโมงที่แล้ว`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'เมื่อวานนี้';
+    if (diffDays < 7) return `${diffDays} วันที่แล้ว`;
+    return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
   } catch {
     return '';
   }
@@ -102,12 +102,17 @@ export default function OrdersPage() {
     setToast({ message, type, key: Date.now() });
   }, []);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback(async () => {
     try {
-      const data = getOrders();
-      setOrders(data);
+      const local = getOrders();
+      setOrders(local);
       setCurrentUser(getCurrentUser());
       setStaffList(getUsers());
+
+      const cloudOrders = await getOrdersAsync();
+      if (cloudOrders) {
+        setOrders(cloudOrders);
+      }
     } catch (err) {
       console.error('Failed to load orders:', err);
     } finally {
@@ -119,18 +124,28 @@ export default function OrdersPage() {
     loadData();
     const handleAuth = () => loadData();
     const handleUsers = () => setStaffList(getUsers());
+    const handleOrdersChange = () => loadData();
+
+    const unsubscribeRealtime = subscribeToOrders(() => {
+      loadData();
+    });
+
     window.addEventListener('horizonpos_auth_change', handleAuth);
     window.addEventListener('horizonpos_users_change', handleUsers);
+    window.addEventListener('horizonpos_orders_change', handleOrdersChange);
+
     return () => {
       window.removeEventListener('horizonpos_auth_change', handleAuth);
       window.removeEventListener('horizonpos_users_change', handleUsers);
+      window.removeEventListener('horizonpos_orders_change', handleOrdersChange);
+      if (unsubscribeRealtime) unsubscribeRealtime();
     };
   }, [loadData]);
 
   // Handle Order Deletion / Refund
-  const handleDeleteOrder = (id, restoreStock) => {
+  const handleDeleteOrder = async (id, restoreStock) => {
     try {
-      const updated = deleteOrder(id, restoreStock);
+      const updated = await deleteOrderAsync(id, restoreStock);
       setOrders(updated);
       showToast(
         restoreStock

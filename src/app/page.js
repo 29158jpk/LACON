@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { getProducts, addOrder, findProductByBarcodeOrSku, getCurrentUser } from '../lib/store';
+import {
+  getProducts,
+  getProductsAsync,
+  addOrder,
+  addOrderAsync,
+  findProductByBarcodeOrSku,
+  getCurrentUser,
+  subscribeToProducts,
+} from '../lib/store';
 import { playScanSound } from '../lib/barcode';
 import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
@@ -84,7 +92,7 @@ function PaymentModal({ cart, total, currentUser, onClose, onSuccess, onRequireA
     setLoading(true);
     setError('');
     try {
-      const savedOrder = addOrder(cart, method, {
+      const savedOrder = await addOrderAsync(cart, method, {
         cashReceived: method === 'cash' ? cashAmount : total,
         change: method === 'cash' && change > 0 ? change : 0,
       });
@@ -215,21 +223,48 @@ export default function POS() {
 
   const searchInputRef = useRef(null);
 
-  // Load products and current user from localStorage
+  // Load products and current user from Supabase / localStorage with Realtime sync
   useEffect(() => {
     setProducts(getProducts());
     setCurrentUser(getCurrentUser());
+
+    // Fetch latest live products from Supabase
+    getProductsAsync().then(latest => {
+      if (latest) setProducts(latest);
+    });
+
     const handleAuth = () => {
       const user = getCurrentUser();
       setCurrentUser(user);
-      setProducts(getProducts());
+      getProductsAsync().then(latest => {
+        if (latest) setProducts(latest);
+      });
       if (!user) {
         // If logged out while payment modal was open, close payment modal
         setShowPayment(false);
       }
     };
+
+    const handleProductsChange = () => {
+      getProductsAsync().then(latest => {
+        if (latest) setProducts(latest);
+      });
+    };
+
+    const unsubscribeRealtime = subscribeToProducts(() => {
+      getProductsAsync().then(latest => {
+        if (latest) setProducts(latest);
+      });
+    });
+
     window.addEventListener('horizonpos_auth_change', handleAuth);
-    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
+    window.addEventListener('horizonpos_products_change', handleProductsChange);
+
+    return () => {
+      window.removeEventListener('horizonpos_auth_change', handleAuth);
+      window.removeEventListener('horizonpos_products_change', handleProductsChange);
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   const categories = ['All', ...new Set(products.map(p => p.category))];
@@ -380,8 +415,10 @@ export default function POS() {
   const handlePaymentSuccess = useCallback((method, change, savedOrder) => {
     setShowPayment(false);
     setCart([]);
-    // Reload products to reflect deducted stock
-    setProducts(getProducts());
+    // Reload products from Supabase to reflect deducted stock
+    getProductsAsync().then(p => {
+      if (p) setProducts(p);
+    });
     if (savedOrder) {
       setPaymentSuccessOrder(savedOrder);
     }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { getDashboardStats, getCurrentUser } from '../../lib/store';
+import { getDashboardStats, getDashboardStatsAsync, getCurrentUser, subscribeToOrders } from '../../lib/store';
 import LoginModal from '../components/LoginModal';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -54,19 +54,35 @@ export default function Dashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
-  const loadData = () => {
+  const loadData = async () => {
     setCurrentUser(getCurrentUser());
-    setStats(getDashboardStats());
+    // Show cached local stats immediately, then refresh from Supabase
+    const localStats = getDashboardStats();
+    setStats(localStats);
     setLoading(false);
+
+    try {
+      const cloudStats = await getDashboardStatsAsync();
+      if (cloudStats) setStats(cloudStats);
+    } catch (err) {
+      console.warn('Dashboard cloud fetch error:', err);
+    }
   };
 
   useEffect(() => {
     loadData();
-    const handleAuth = () => {
-      loadData();
-    };
+    const handleAuth = () => { loadData(); };
+    const handleOrdersChange = () => { loadData(); };
+
+    const unsubscribeRealtime = subscribeToOrders(() => { loadData(); });
+
     window.addEventListener('horizonpos_auth_change', handleAuth);
-    return () => window.removeEventListener('horizonpos_auth_change', handleAuth);
+    window.addEventListener('horizonpos_orders_change', handleOrdersChange);
+    return () => {
+      window.removeEventListener('horizonpos_auth_change', handleAuth);
+      window.removeEventListener('horizonpos_orders_change', handleOrdersChange);
+      if (unsubscribeRealtime) unsubscribeRealtime();
+    };
   }, []);
 
   if (loading) {
