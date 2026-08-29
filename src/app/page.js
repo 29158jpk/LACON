@@ -7,6 +7,7 @@ import { playScanSound } from '../lib/barcode';
 import ProductImage from './components/ProductImage';
 import CameraScannerModal from './components/CameraScannerModal';
 import OrderReceiptModal from './components/OrderReceiptModal';
+import { PROMPTPAY_QR_BASE64 } from '../lib/promptpayQR';
 
 // ── PromptPay QR Component ───────────────────────────────────────────────────
 function PromptPayQRCode({ amount }) {
@@ -24,7 +25,7 @@ function PromptPayQRCode({ amount }) {
 
       <div className="promptpay-qr-img-wrapper">
         <img
-          src="/promptpay-qr.png"
+          src={PROMPTPAY_QR_BASE64}
           alt="PromptPay QR Code"
           className="promptpay-qr-img"
         />
