@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import BarcodeView from './BarcodeView';
 
 export default function BarcodePrintModal({ product, products = [], onClose }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   // If a single product is passed, print that product; if null, allow batch printing
   const isBatch = !product && products.length > 0;
   const [printQty, setPrintQty] = useState(product ? Math.max(1, Math.min(product.stock || 1, 10)) : 1);
@@ -29,7 +35,9 @@ export default function BarcodePrintModal({ product, products = [], onClose }) {
     ? products.filter(p => selectedProducts.includes(p.id))
     : (product ? [product] : []);
 
-  return (
+  if (!mounted) return null;
+
+  const modalContent = (
     <div className="modal-overlay barcode-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-wide barcode-print-modal" role="dialog" aria-modal="true">
         <div className="modal-header no-print">
@@ -155,4 +163,6 @@ export default function BarcodePrintModal({ product, products = [], onClose }) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

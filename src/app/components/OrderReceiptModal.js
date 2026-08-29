@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { formatOrderNo, getCurrentUser } from '../../lib/store';
 
 function fmt(num) {
@@ -25,16 +26,18 @@ function formatThaiDate(dateStr) {
 }
 
 export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
+  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [restoreStockOnDelete, setRestoreStockOnDelete] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
+    setMounted(true);
     setCurrentUser(getCurrentUser());
   }, []);
 
-  if (!order) return null;
+  if (!order || !mounted) return null;
 
   const isAdmin = currentUser?.role === 'admin';
 
@@ -62,7 +65,7 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
     onClose();
   };
 
-  return (
+  const modalContent = (
     <div className="modal-overlay receipt-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-wide receipt-modal-container" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
         {/* Header - Screen only */}
@@ -318,4 +321,6 @@ export default function OrderReceiptModal({ order, onClose, onDeleteOrder }) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

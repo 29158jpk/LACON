@@ -32,7 +32,7 @@ export default function NavLinks() {
     },
     {
       href: '/orders',
-      label: 'ประวัติการขาย',
+      label: 'Orders',
       id: 'nav-orders',
       adminOnly: false,
       icon: (
