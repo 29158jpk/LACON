@@ -17,13 +17,35 @@ export default function LoginModal({ isOpen, onClose, onSuccess, initialRoleNeed
     if (isOpen) {
       const allUsers = getUsers();
       setUsers(allUsers);
-      setSelectedUser(allUsers[0] || null);
+      const adminUser = allUsers.find(u => u.role === 'admin') || allUsers[0] || null;
+      setSelectedUser(adminUser);
       setPin('');
       setError('');
       setUsername('');
       setPassword('');
     }
   }, [isOpen]);
+
+  // Keyboard shortcut listener for PIN entry
+  useEffect(() => {
+    if (!isOpen || loginMode !== 'pin') return;
+    const handleKeyDown = (e) => {
+      // Ignore if inside an input or textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if (['0','1','2','3','4','5','6','7','8','9'].includes(e.key)) {
+        handlePinDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        handlePinBackspace();
+      } else if (e.key === 'Escape' && onClose) {
+        onClose();
+      } else if (e.key === 'Enter') {
+        handlePinSubmit();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, loginMode, pin, selectedUser]);
 
   if (!isOpen) return null;
 

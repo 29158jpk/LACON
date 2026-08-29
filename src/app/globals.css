@@ -459,11 +459,13 @@ body {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.75);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 40px 20px;
+  overflow-y: auto;
   z-index: 1000;
   animation: fadeIn 0.2s ease;
 }
@@ -475,8 +477,10 @@ body {
   padding: 28px;
   width: 440px;
   max-width: 95vw;
-  max-height: 90vh;
+  max-height: min(90vh, 780px);
+  margin: auto;
   overflow-y: auto;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
   animation: slideUp 0.25s ease;
 }
 
@@ -2047,6 +2051,34 @@ body {
    ───────────────────────────────────────────── */
 .user-nav-widget {
   position: relative;
+}
+
+.user-nav-login-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 8px 16px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+  transition: all 0.2s ease;
+}
+.user-nav-login-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.45);
+}
+.login-btn-icon {
+  font-size: 14px;
+}
+.login-btn-text {
+  letter-spacing: 0.02em;
 }
 
 .user-nav-btn {

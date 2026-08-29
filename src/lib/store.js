@@ -309,14 +309,28 @@ export function getCurrentUser() {
   if (stored && stored.id) {
     return stored;
   }
-  const users = getUsers();
-  const defaultUser = users[0] || DEFAULT_USERS[0];
-  writeLS(CURRENT_USER_KEY, defaultUser);
-  return defaultUser;
+  // On first load if no users initialized yet, default to admin
+  if (isClient()) {
+    const hasInit = localStorage.getItem('horizonpos_initialized');
+    if (!hasInit) {
+      localStorage.setItem('horizonpos_initialized', 'true');
+      const users = getUsers();
+      const defaultUser = users[0] || DEFAULT_USERS[0];
+      writeLS(CURRENT_USER_KEY, defaultUser);
+      return defaultUser;
+    }
+  }
+  return null;
 }
 
 export function setCurrentUser(user) {
-  writeLS(CURRENT_USER_KEY, user);
+  if (user) {
+    writeLS(CURRENT_USER_KEY, user);
+  } else {
+    if (isClient()) {
+      try { localStorage.removeItem(CURRENT_USER_KEY); } catch {}
+    }
+  }
   if (isClient()) {
     window.dispatchEvent(new CustomEvent('horizonpos_auth_change', { detail: user }));
   }
@@ -366,10 +380,8 @@ export function verifyAdminPin(pin) {
 }
 
 export function logout() {
-  const users = getUsers();
-  const firstEmployee = users.find(u => u.role === 'employee') || users[0];
-  setCurrentUser(firstEmployee);
-  return firstEmployee;
+  setCurrentUser(null);
+  return null;
 }
 
 // ─────────────────────────────────────────────

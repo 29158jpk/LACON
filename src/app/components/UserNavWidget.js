@@ -42,9 +42,7 @@ export default function UserNavWidget() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (!currentUser) return null;
-
-  const isAdmin = currentUser.role === 'admin';
+  const isAdmin = currentUser?.role === 'admin';
 
   const handleLogout = () => {
     logout();
@@ -55,31 +53,44 @@ export default function UserNavWidget() {
   return (
     <>
       <div className="user-nav-widget" ref={dropdownRef}>
-        <button
-          type="button"
-          id="user-profile-btn"
-          className={`user-nav-btn ${isAdmin ? 'is-admin' : 'is-employee'}`}
-          onClick={() => setShowDropdown(prev => !prev)}
-          title="คลิกเพื่อสลับผู้ใช้งานหรือจัดการสิทธิ์"
-        >
-          <div
-            className="user-nav-avatar"
-            style={{ background: currentUser.avatarColor || (isAdmin ? '#3b82f6' : '#10b981') }}
+        {currentUser ? (
+          <button
+            type="button"
+            id="user-profile-btn"
+            className={`user-nav-btn ${isAdmin ? 'is-admin' : 'is-employee'}`}
+            onClick={() => setShowDropdown(prev => !prev)}
+            title="คลิกเพื่อสลับผู้ใช้งานหรือจัดการสิทธิ์"
           >
-            {isAdmin ? '👑' : '👤'}
-          </div>
+            <div
+              className="user-nav-avatar"
+              style={{ background: currentUser.avatarColor || (isAdmin ? '#3b82f6' : '#10b981') }}
+            >
+              {isAdmin ? '👑' : '👤'}
+            </div>
 
-          <div className="user-nav-info">
-            <span className="user-nav-name">{currentUser.name}</span>
-            <span className={`user-nav-role ${isAdmin ? 'admin' : 'employee'}`}>
-              {isAdmin ? '👑 Admin' : '👤 Employee'}
-            </span>
-          </div>
+            <div className="user-nav-info">
+              <span className="user-nav-name">{currentUser.name}</span>
+              <span className={`user-nav-role ${isAdmin ? 'admin' : 'employee'}`}>
+                {isAdmin ? '👑 Admin' : '👤 Employee'}
+              </span>
+            </div>
 
-          <svg className={`user-nav-arrow ${showDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6 9 12 15 18 9"/>
-          </svg>
-        </button>
+            <svg className={`user-nav-arrow ${showDropdown ? 'open' : ''}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        ) : (
+          <button
+            type="button"
+            id="nav-login-btn"
+            className="user-nav-login-btn"
+            onClick={() => setShowLoginModal(true)}
+            title="คลิกเพื่อเข้าสู่ระบบ"
+          >
+            <span className="login-btn-icon">🔑</span>
+            <span className="login-btn-text">เข้าสู่ระบบ (Login)</span>
+          </button>
+        )}
 
         {showDropdown && (
           <div className="user-nav-dropdown">
